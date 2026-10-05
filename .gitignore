@@ -1,0 +1,27 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+
+# Local secrets and data — never commit these
+credentials.json
+token.json
+settings.json
+*.db
+*.db-wal
+*.db-shm
+*.sqlite3
+jobtrack.toml
+.env
+.env.*
+!.env.example
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/
+
+# Local agent/tooling notes about this user, not project source.
+/.commandcode/
