@@ -1,0 +1,556 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f6f7f3" />
+    <script>
+      try {
+        const saved = localStorage.getItem("jobtrack-theme");
+        document.documentElement.dataset.theme =
+          saved === "dark" || saved === "light"
+            ? saved
+            : matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light";
+      } catch {
+        document.documentElement.dataset.theme = "light";
+      }
+    </script>
+    <title>Job Tracker · Your search, in focus</title>
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/assets/styles.css?v=sync-menu" />
+    <script type="module" src="/assets/app.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="app-header">
+      <a class="brand" href="#overview"
+        ><span class="brand-symbol" aria-hidden="true">jt</span
+        ><span>jobtrack<span class="brand-dot">_</span></span></a
+      >
+      <nav aria-label="Workspace navigation">
+        <button class="nav-item selected" data-page="overview">
+          <span data-icon="overview"></span>Overview
+        </button>
+        <button class="nav-item" data-page="applications">
+          <span data-icon="applications"></span>Applications<span
+            id="nav-count"
+            class="nav-count"
+            >0</span
+          >
+        </button>
+        <button class="nav-item" data-page="activity">
+          <span data-icon="activity"></span>Activity
+        </button>
+      </nav>
+      <div class="header-tools">
+        <button
+          class="button icon-button"
+          id="theme-toggle"
+          aria-label="Switch to dark mode"
+          title="Switch to dark mode"
+        >
+          <span data-icon="moon"></span>
+        </button>
+        <button
+          class="button icon-button"
+          id="settings-button"
+          aria-label="Workspace settings"
+          title="Settings"
+        >
+          <span data-icon="settings"></span>
+        </button>
+        <div class="sync-actions" id="sync-actions">
+          <button class="button button-primary" id="sync-button">
+            <span data-icon="sync"></span
+            ><span id="sync-button-label">Sync Gmail</span>
+          </button>
+          <button
+            class="button button-primary icon-button"
+            id="sync-menu-toggle"
+            aria-label="More sync actions"
+            aria-expanded="false"
+            aria-controls="sync-menu"
+          >
+            <span data-icon="chevron"></span>
+          </button>
+          <div
+            class="sync-menu"
+            id="sync-menu"
+            role="group"
+            aria-label="Sync actions"
+            hidden
+          >
+            <button
+              class="button button-primary"
+              id="sync-all"
+              title="Recheck all matching recruiting emails, across all dates"
+            >
+              <span data-icon="sync"></span><span>Sync all</span>
+            </button>
+            <button class="text-button" id="sync-options">Sync options</button>
+          </div>
+        </div>
+      </div>
+    </header>
+    <div class="workspace">
+      <div class="topbar">
+        <div class="breadcrumb">
+          WORKSPACE <span>/</span><strong id="breadcrumb-page">Overview</strong>
+        </div>
+        <div class="status-strip">
+          <button class="text-button" id="connection-sync">
+            <span class="connection-dot" id="connection-dot"></span
+            ><span id="connection-label">Checking Gmail</span></button
+          ><span>LOCAL STORAGE</span><span class="today" id="today"></span>
+        </div>
+      </div>
+      <main id="main" tabindex="-1">
+        <div class="work-category-bar">
+          <div class="category-switch" role="group" aria-label="Work category">
+            <button
+              class="category-button selected"
+              data-category="employment"
+              aria-pressed="true"
+            >
+              <span data-icon="applications"></span>Employment
+            </button>
+            <button
+              class="category-button"
+              data-category="freelance"
+              aria-pressed="false"
+            >
+              <span data-icon="freelance"></span>Freelance
+            </button>
+          </div>
+          <span id="category-context">Your employment search</span>
+        </div>
+        <div id="notice" class="notice" role="status" hidden></div>
+        <div id="history-banner" class="history-banner" hidden>
+          <span
+            >Viewing email history as of
+            <strong id="history-date"></strong></span
+          ><button class="text-button" id="back-to-now">
+            Back to now <span aria-hidden="true">↗</span>
+          </button>
+        </div>
+        <section id="overview-page" class="page">
+          <div class="page-heading">
+            <div>
+              <div class="eyebrow">
+                <span class="live-dot"></span>WORKSPACE SUMMARY
+              </div>
+              <h1 id="overview-title">Employment overview</h1>
+              <p>Application status, inbox signals, and follow-ups.</p>
+            </div>
+            <div class="sync-caption">
+              <span data-icon="check"></span
+              ><span id="last-sync">Ready when you are</span>
+            </div>
+          </div>
+          <div
+            class="metrics"
+            id="metrics"
+            aria-label="Job search summary"
+          ></div>
+          <div id="welcome" class="welcome" hidden>
+            <div>
+              <div class="eyebrow">INBOX IMPORT</div>
+              <h2>No applications imported</h2>
+              <p>
+                Sync Gmail to import application confirmations and recruiting
+                updates.
+              </p>
+              <button class="button button-primary" id="welcome-sync">
+                Import from Gmail <span data-icon="arrow"></span></button
+              ><span class="welcome-footnote"
+                >Gmail is read-only. Your history stays on this device.</span
+              >
+            </div>
+            <div class="welcome-art" aria-hidden="true">
+              <div class="orbit orbit-one"></div>
+              <div class="orbit orbit-two"></div>
+              <div class="mail-art">
+                <span data-icon="mail"></span><span class="art-check">✓</span>
+              </div>
+              <span class="art-spark spark-one">+</span
+              ><span class="art-spark spark-two">✦</span>
+              <div class="art-pill">Read-only inbox <span>↗</span></div>
+            </div>
+          </div>
+          <div class="overview-grid">
+            <section class="panel chart-panel">
+              <div class="panel-heading">
+                <div>
+                  <h2>Application volume</h2>
+                  <p>Applications first seen over the last 8 weeks</p>
+                </div>
+                <span class="small-tag">WEEKLY</span>
+              </div>
+              <div class="chart-total">
+                <strong id="chart-total">0</strong
+                ><span>applications in this period</span>
+              </div>
+              <div
+                id="weekly-chart"
+                class="weekly-chart"
+                role="img"
+                aria-label="Weekly application counts"
+              ></div>
+            </section>
+            <section class="panel pipeline-panel">
+              <div class="panel-heading">
+                <div>
+                  <h2>Pipeline</h2>
+                  <p>Current stages</p>
+                </div>
+                <span data-icon="pipeline"></span>
+              </div>
+              <div id="pipeline" class="pipeline"></div>
+              <button class="panel-footer-link" data-go="applications">
+                Open applications <span data-icon="arrow"></span>
+              </button>
+            </section>
+          </div>
+          <div class="overview-grid lower-grid">
+            <section class="panel">
+              <div class="panel-heading">
+                <div>
+                  <h2>
+                    Needs attention
+                    <span class="count-bubble" id="attention-count">0</span>
+                  </h2>
+                  <p>Follow-ups and opportunities in progress</p>
+                </div>
+                <span data-icon="spark"></span>
+              </div>
+              <div id="attention" class="attention-list"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-heading">
+                <div>
+                  <h2>Recent mail</h2>
+                  <p>Latest application events</p>
+                </div>
+                <button class="text-button" data-go="activity">
+                  View all <span aria-hidden="true">↗</span>
+                </button>
+              </div>
+              <div id="recent-activity" class="recent-activity"></div>
+            </section>
+          </div>
+          <div class="overview-grid role-grid">
+            <section class="panel">
+              <div class="panel-heading">
+                <div>
+                  <h2>Roles applied for</h2>
+                  <p>Applications grouped by role type</p>
+                </div>
+                <span class="small-tag">BY ROLE</span>
+              </div>
+              <div
+                id="role-categories"
+                class="role-list"
+                aria-label="Applications by role category"
+              ></div>
+              <button class="panel-footer-link" data-go="applications">
+                Open applications <span data-icon="arrow"></span>
+              </button>
+            </section>
+          </div>
+          <div class="page-footnote">
+            <span data-icon="shield"></span>Gmail is read-only. Application data
+            stays on this device.
+          </div>
+        </section>
+        <section id="applications-page" class="page" hidden>
+          <div class="page-heading">
+            <div>
+              <div class="eyebrow">APPLICATION REGISTER</div>
+              <h1 id="applications-title">Applications</h1>
+              <p>Search, filter, and inspect application history.</p>
+            </div>
+            <button class="button" id="export-button">
+              <span data-icon="download"></span>Export CSV
+            </button>
+          </div>
+          <div class="applications-toolbar">
+            <div class="search-field">
+              <span data-icon="search"></span
+              ><input
+                id="search"
+                type="search"
+                aria-label="Search applications"
+                placeholder="Search company or role…"
+              /><kbd>/</kbd>
+            </div>
+            <div class="toolbar-right">
+              <label class="history-control"
+                >As of
+                <input type="date" id="as-of" aria-label="View history as of"
+              /></label>
+              <div class="view-switch" aria-label="Application view">
+                <button
+                  id="list-view"
+                  class="selected"
+                  aria-label="List view"
+                  aria-pressed="true"
+                >
+                  <span data-icon="list"></span></button
+                ><button
+                  id="board-view"
+                  aria-label="Board view"
+                  aria-pressed="false"
+                >
+                  <span data-icon="board"></span>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="filter-bar">
+            <div
+              id="filters"
+              class="filter-tabs"
+              aria-label="Filter applications"
+            ></div>
+            <label class="sort-label"
+              ><span data-icon="sort"></span
+              ><select id="sort" aria-label="Sort applications">
+                <option value="recent">Recent activity</option>
+                <option value="company">Company A–Z</option>
+                <option value="oldest">Oldest activity</option>
+                <option value="follow_up">Follow-up date</option>
+              </select></label
+            >
+          </div>
+          <div id="application-content" aria-live="polite"></div>
+          <div class="list-footer">
+            <span id="result-count"></span
+            ><span
+              >Select an application to inspect its timeline
+              <span aria-hidden="true">↗</span></span
+            >
+          </div>
+        </section>
+        <section id="activity-page" class="page" hidden>
+          <div class="page-heading">
+            <div>
+              <div class="eyebrow">EVENT LOG</div>
+              <h1>Activity</h1>
+              <p>
+                Your recruiting conversations and the syncs that bring them
+                here.
+              </p>
+            </div>
+          </div>
+          <div class="activity-tabs">
+            <button class="selected" id="mail-tab">Recruiting mail</button
+            ><button id="runs-tab">Sync history</button>
+          </div>
+          <div id="activity-content"></div>
+        </section>
+      </main>
+    </div>
+    <dialog
+      id="detail-dialog"
+      class="detail-dialog"
+      aria-labelledby="detail-title"
+    >
+      <div id="detail-content"></div>
+    </dialog>
+    <dialog id="sync-dialog" class="modal" aria-labelledby="sync-title">
+      <div class="modal-header">
+        <div>
+          <div class="eyebrow">INBOX → PIPELINE</div>
+          <h2 id="sync-title">Gmail sync</h2>
+        </div>
+        <button
+          class="icon-button button"
+          data-close="sync-dialog"
+          aria-label="Close sync options"
+        >
+          <span data-icon="close"></span>
+        </button>
+      </div>
+      <p class="modal-description">
+        Find recruiting mail in Gmail. Preview the results, or add them straight
+        to your workspace.
+      </p>
+      <form id="sync-form">
+        <div class="form-grid">
+          <label
+            >Look back<input
+              name="since"
+              id="sync-since"
+              value="365"
+              placeholder="90, 3m, or 2026-01-01"
+            /><span class="field-hint"
+              >Days, duration, or a start date. Use 0 for all time.</span
+            ></label
+          ><label
+            >Before (optional)<input
+              name="before"
+              id="sync-before"
+              type="date"
+            /><span class="field-hint"
+              >Only include messages before this date.</span
+            ></label
+          >
+        </div>
+        <div class="form-grid">
+          <label
+            >Maximum emails<input
+              name="limit"
+              id="sync-limit"
+              type="number"
+              min="0"
+              value="100"
+            /><span class="field-hint"
+              >Use 0 for unlimited. Start small for a backfill.</span
+            ></label
+          ><label
+            >Sync mode<select id="sync-mode">
+              <option value="new">New emails only</option>
+              <option value="full">
+                Full sync · recheck old emails
+              </option></select
+            ><span class="field-hint"
+              >Normal sync skips previously processed mail. Full sync rechecks
+              matching mail in the selected date range; use lookback 0 for all
+              time.</span
+            ></label
+          ><label class="check"
+            ><input id="sync-track-sent" type="checkbox" /><span
+              >Also track applications you sent
+            </span></label
+          ><span class="field-hint"
+            >Records mail from your own address whose subject announces an
+            application, as the submission it is. Replies inside an existing
+            thread join that application. Personal contacts stay ignored.</span
+          >
+        </div>
+        <details class="advanced">
+          <summary>Custom Gmail search</summary>
+          <label
+            >Search query<input
+              id="sync-query"
+              placeholder="Leave blank for recruiting mail"
+            /><span class="field-hint"
+              >Dates above are added to this query.</span
+            ></label
+          >
+        </details>
+        <div id="sync-result" class="sync-result" role="status" hidden></div>
+        <div id="sync-preview"></div>
+        <div class="modal-footer">
+          <button class="button" id="preview-button" type="button">
+            <span data-icon="eye"></span>Preview first</button
+          ><button class="button button-primary" id="sync-submit" type="submit">
+            <span data-icon="sync"></span
+            ><span id="sync-submit-label">Sync new emails</span>
+          </button>
+        </div>
+      </form>
+    </dialog>
+    <dialog
+      id="settings-dialog"
+      class="modal settings-modal"
+      aria-labelledby="settings-title"
+    >
+      <div class="modal-header">
+        <div>
+          <div class="eyebrow">CONFIGURATION</div>
+          <h2 id="settings-title">Workspace settings.</h2>
+        </div>
+        <button
+          class="button icon-button"
+          data-close="settings-dialog"
+          aria-label="Close settings"
+        >
+          <span data-icon="close"></span>
+        </button>
+      </div>
+      <p class="modal-description">
+        Connect your providers. Build a team that checks the evidence together.
+      </p>
+      <form id="settings-form">
+        <div class="settings-tabs" role="tablist" aria-label="Model settings">
+          <button
+            type="button"
+            role="tab"
+            id="connections-tab"
+            aria-controls="settings-panel"
+            data-settings-tab="connections"
+          >
+            Connections <span id="connection-count"></span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            id="team-tab"
+            aria-controls="settings-panel"
+            data-settings-tab="team"
+          >
+            Review team <span id="team-count"></span>
+          </button>
+        </div>
+        <div id="settings-panel" role="tabpanel"></div>
+        <div class="settings-defaults">
+          <label
+            >When to use models<select id="s-mode">
+              <option value="auto">Automatic · uncertain mail</option>
+              <option value="off">Rules only</option>
+              <option value="fallback">Models for uncertain mail</option>
+              <option value="always">Models for every email</option>
+            </select></label
+          >
+          <label
+            >Default lookback<input id="s-since" placeholder="365" /><span
+              class="field-hint"
+              >Days, a duration such as 3m, or a date.</span
+            ></label
+          >
+          <label class="check"
+            ><input id="s-track-sent" type="checkbox" /><span
+              >Track applications you sent yourself
+            </span></label
+          ><span class="field-hint"
+            >Runs beside every sync unless a sync request turns it off. Mail
+            from your own address whose subject announces an application is
+            recorded as the submission it is; personal contacts are
+            ignored.</span
+          >
+        </div>
+        <div
+          id="settings-result"
+          class="form-result"
+          role="status"
+          hidden
+        ></div>
+        <div id="team-test-report"></div>
+        <div class="modal-footer">
+          <button class="button" id="test-model" type="button">
+            Save & test team <span data-icon="spark"></span>
+          </button>
+          <button
+            class="button button-primary"
+            id="save-settings"
+            type="submit"
+          >
+            Save settings <span data-icon="check"></span>
+          </button>
+        </div>
+      </form>
+    </dialog>
+    <div id="sync-dock" class="sync-dock" hidden>
+      <div class="sync-dock-icon" data-icon="sync"></div>
+      <div>
+        <strong id="dock-title">Syncing your inbox</strong
+        ><span id="dock-description">Looking for recruiting mail…</span>
+      </div>
+      <button class="text-button" id="dock-open">Details ↗</button>
+    </div>
+    <div id="toast" class="toast" role="status" hidden></div>
+  </body>
+</html>
