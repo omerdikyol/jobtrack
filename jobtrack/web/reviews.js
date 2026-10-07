@@ -1,0 +1,5 @@
+import { escapeHTML as e } from "./ui.js";
+export function reviewHTML(review) {
+  if (!review) return "";
+  return `<div class="review-report"><div class="review-outcome ${review.status === "agreed" ? "agreed" : "unresolved"}"><strong>${review.status === "agreed" ? "Agreement reached" : "Needs your review"}</strong><span>${e(review.resolution)} · ${e(review.seconds)}s${review.context_used ? " · related email context used" : ""}</span></div>${review.rounds.map((r) => `<details class="review-round" ${review.rounds.length === 1 ? "open" : ""}><summary>Round ${e(r.round)} · ${r.phase === "independent" ? "Independent reviews" : "Compare & reconsider"}</summary><div class="review-opinions">${r.opinions.map((o) => `<article><small>${e(o.provider)}</small><strong>${e(o.model)}</strong>${o.error ? `<p class="review-error">${e(o.error)}</p>` : `<p>${e(o.job_related ? o.event : "Unrelated email")} · ${Math.round(o.confidence * 100)}%</p><span>${e(o.company || "Employer unstated")}${o.role ? ` · ${e(o.role)}` : ""}</span>${o.evidence ? `<blockquote>“${e(o.evidence)}”</blockquote>` : ""}`}</article>`).join("")}</div></details>`).join("")}</div>`;
+}
