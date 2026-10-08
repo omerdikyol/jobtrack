@@ -44,7 +44,7 @@ jobs:
 
       - name: Build a wheel and sdist
         run: |
-          python -m pip install --upgrade pip build
+          python -m pip install --upgrade pip build twine
           python -m build
 
       # Fails the build if packaging metadata is wrong, which is otherwise only
