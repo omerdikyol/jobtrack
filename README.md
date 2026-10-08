@@ -1,36 +1,87 @@
 # jobtrack
 
-A personal job-search workspace built from your Gmail recruiting mail. Find applications, assessments, interviews, offers, and rejections; follow the email timeline; and keep your next steps beside each opportunity.
+A local job-search workspace built from the recruiting mail already in your Gmail. Find applications, assessments, interviews, offers, and rejections; follow each email timeline; and keep your next steps beside every opportunity.
 
-The application runs locally with Python, FastAPI, and SQLite. Gmail access is read-only. Classification uses offline rules, optionally assisted by a local or hosted model. **Hosted models receive email content when enabled**; rules-only mode and local models keep that content on your device.
+![Overview](docs/screenshots/overview.png)
 
-## Get started
+The app runs on your own machine with Python, FastAPI, and SQLite. It asks Gmail for **one** permission — `gmail.readonly` — so it can never send, delete, or modify mail. Classification works from offline rules and is optionally assisted by a local or hosted model.
 
-Python 3.10 or newer is required.
+## What it can and cannot do
+
+| | |
+| --- | --- |
+| **Reads** recruiting mail you already received | **Cannot** send, delete, or modify mail |
+| **Stores** everything in a local SQLite file | **Cannot** reach your inbox without your approval |
+| **Runs** on `127.0.0.1` with no external service | **Cannot** be a hosted service — there is no account |
+
+If you configure a hosted model provider, the email being classified is sent to that provider for the length of the request. Rules-only mode (`--llm-mode off`) and local models keep that content on your device. See [SECURITY.md](SECURITY.md) for the full picture, including where tokens and keys live.
+
+## Install
+
+Python 3.10 or newer. From a clone:
 
 ```bash
 uv venv
-uv pip install -e ".[dev]"
+uv pip install -e "."
 source .venv/bin/activate
+```
 
+Or with plain `pip`:
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e .
+```
+
+Either way you get a `jobtrack` command. Check it with `jobtrack --help`.
+
+## Authorize Gmail
+
+This is the part that is not one command, because Google requires you to create your own OAuth client. There is no shared client here, and that is deliberate: your token goes to your machine, not to someone else's server.
+
+1. Open [Google Cloud Console](https://console.cloud.google.com/) and create a project (or pick an existing one).
+2. Enable the **Gmail API** for that project.
+3. Under **Google Auth Platform → Branding**, set an app name and support email. Choose **External**.
+4. If the app is in *Testing*, add your own address under **Test users**. Skip this if you publish the app.
+5. Under **Data Access**, add exactly one scope:
+   `https://www.googleapis.com/auth/gmail.readonly`
+6. Create an **OAuth client ID** of type **Desktop app** and download the JSON.
+7. Authorize:
+
+```bash
 jobtrack auth --credentials ~/Downloads/client_secret.json
+```
+
+A browser opens, you approve the read-only permission, and a token is cached at `token.json` (mode `600`). Confirm with `jobtrack schedule status` or just run a sync.
+
+> **If your token stops working after about seven days:** your OAuth app is in *Testing*, where Google expires refresh tokens quickly. This is not a bug in `jobtrack`. Either publish the app (**Google Auth Platform → Publish app**) or re-run `jobtrack auth`. This is the single most common problem people hit.
+
+## First sync
+
+```bash
 jobtrack serve
 ```
 
-Open [the workspace](http://127.0.0.1:8765). If you have already authenticated, start with `jobtrack serve`; your existing token and database are reused.
+Then open [http://127.0.0.1:8765](http://127.0.0.1:8765). Prefer to look before you import: open **Sync options**, set a lookback of 90 days and a limit of 50, and choose **Preview first**. That lists candidate messages and their classifications without changing anything.
 
-The interface is deliberately dense: charcoal surfaces, amber controls, monospace typography, compact top navigation, and packed panels. The header toggle provides a warm light alternative.
+When the preview looks right, choose **Sync Gmail**. Your existing token and database are reused on every later start.
 
-The app includes:
+### The interface
+
+![Applications](docs/screenshots/applications.png)
+
+The layout is deliberately dense: charcoal surfaces, amber controls, monospace typography, compact top navigation, and packed panels. The header toggle switches to a warm light theme, and the layout adapts to narrow screens without a separate mobile app. Press `/` to jump to application search.
+
+You get:
 
 - **Overview:** current stages, active opportunities, interview count, response rate, an eight-week activity chart, role categories, follow-ups, and recent mail.
 - **Applications:** searchable, sortable list and board views; stage filters; CSV export of the current view; historical snapshots.
-- **Application details:** chronological email history, **Open in Gmail** links to the original conversation, classification confidence, notes, follow-up date, and optional status correction.
+- **Application details:** chronological email history, **Open in Gmail** links into the original conversation, classification confidence, notes, follow-up date, and an optional status correction.
 - **Activity:** recent recruiting messages and persistent sync history.
-- **Sync options:** lookback, upper date bound, maximum messages, custom Gmail search, reclassification, and a preview that leaves application history unchanged.
+- **Sync options:** lookback, upper date bound, maximum messages, custom Gmail search, whether to track mail you sent yourself, and reclassification.
 - **Settings:** provider connection cards, masked API keys, live model discovery, a searchable multi-model picker, consensus review, and a sample-email team test.
 
-Use `/` to jump to application search. Dialogs support Escape, keyboard navigation, and native focus containment. The layout adapts to narrow screens without a separate mobile app.
+Dialogs support Escape, keyboard navigation, and native focus containment.
 
 ### Preview before importing
 
@@ -162,15 +213,11 @@ Global `--db PATH` selects another database. Global `--json` renders machine-rea
 
 Scheduled sync uses launchd on macOS and cron on Linux. It scans the last seven days with `--no-auth`, refreshing an existing token but never starting interactive sign-in. Check `jobtrack schedule status` and `sync.log` for unattended failures.
 
-## Gmail authorization
+## Authorization reference
 
-1. Create a project in [Google Cloud Console](https://console.cloud.google.com/) and enable the Gmail API.
-2. Configure Google Auth Platform with an **External** audience and add your own address as a test user if the app is in Testing.
-3. Declare only `https://www.googleapis.com/auth/gmail.readonly` in Data Access.
-4. Create a **Desktop app** OAuth client and download its JSON.
-5. Run `jobtrack auth --credentials PATH_TO_JSON` and approve the read-only permission.
+The step-by-step setup is in [Authorize Gmail](#authorize-gmail) above. In short: create a Cloud project, enable the Gmail API, configure Google Auth Platform as **External**, declare only `https://www.googleapis.com/auth/gmail.readonly`, create a **Desktop app** OAuth client, and run `jobtrack auth --credentials PATH_TO_JSON`.
 
-Testing-mode OAuth refresh tokens can expire after seven days. For an unattended personal app, check the publishing status in Google Auth Platform and reauthorize after changing it. A revoked or expired token is surfaced by sync and `schedule status`; the server does not open an authorization browser by itself.
+Testing-mode OAuth refresh tokens expire after about seven days; reauthorize with the same command, or publish the app to avoid it. A revoked or expired token is surfaced by sync and by `schedule status` — the server never opens an authorization browser by itself.
 
 The web app binds to `127.0.0.1` by default. Binding a network interface requires `--allow-remote`, because there is no separate web login. API responses are not cached, and cross-origin write requests are rejected. API keys are write-only in the browser: it receives only a masked hint. Settings writes are atomic and mode `600`.
 
@@ -245,6 +292,19 @@ Secrets and databases are git-ignored. Development checks:
 uv pip install -e ".[dev]"
 pytest -q
 uvx ruff check --select E4,E7,E9,F,I jobtrack tests
+```
+
+CI runs the same two commands on macOS and Linux across Python 3.10 and 3.12, and verifies the package builds.
+
+### Regenerating the screenshots
+
+The images in this README come from a seeded demo database of invented
+applications, so they carry no real personal data. To rebuild them:
+
+```bash
+python scripts/seed_demo.py /tmp/jobtrack-demo.db
+jobtrack --db /tmp/jobtrack-demo.db serve --port 8765
+# then capture the overview, applications, and detail views
 ```
 
 Tests cover classification, Gmail decoding, model adapters, CLI and scheduling, migrations, transaction rollback, distinct-role grouping, durable job locking/recovery, preview safety, user corrections, metrics, historical replay, and the HTTP API. The browser requires modern ES modules and native HTML dialogs.
