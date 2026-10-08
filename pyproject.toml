@@ -5,6 +5,23 @@ description = "Track job applications and employer responses by reading your Gma
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
+keywords = ["gmail", "job-search", "applications", "tracking", "sqlite", "fastapi"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Environment :: Web Environment",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business",
+    "Topic :: Utilities",
+]
 dependencies = [
     "google-api-python-client>=2.100",
     "google-auth-oauthlib>=1.2",
@@ -18,6 +35,11 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "httpx>=0.27"]
+
+[project.urls]
+Homepage = "https://github.com/omerdikyol/jobtrack"
+Issues = "https://github.com/omerdikyol/jobtrack/issues"
+Security = "https://github.com/omerdikyol/jobtrack/security/policy"
 
 [project.scripts]
 jobtrack = "jobtrack.cli:main"
