@@ -63,7 +63,7 @@ def get_credentials(
             "If this happens roughly every week, your Google Cloud app is in "
             "'Testing' publishing status, where refresh tokens expire after 7 days. "
             "Switch it to 'In production' (no verification needed) and authorise "
-            "again — see the README section 'Making the token last'."
+            "again — see the 'Authorize Gmail' section of the README."
         )
 
     if not credentials_path.is_file():

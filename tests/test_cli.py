@@ -1,3 +1,5 @@
+import re
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -319,3 +321,33 @@ def test_llm_flags_flow_into_the_config():
     assert config.model == "llama3.2"
     assert config.base_url == "http://box:11434"
     assert config.max_chars == 99
+
+
+# --------------------------------------------------------------------------
+# Documentation references
+# --------------------------------------------------------------------------
+def test_error_messages_point_at_readme_sections_that_exist():
+    """A deleted heading must not leave users chasing it.
+
+    The token-expiry error used to name a 'Making the token last' section that
+    no longer exists, and it is the message a new user is most likely to hit.
+    """
+    readme = (Path(__file__).resolve().parents[1] / "README.md").read_text(
+        encoding="utf-8"
+    )
+    headings = {
+        line.lstrip("# ").strip()
+        for line in readme.splitlines()
+        if line.startswith("#")
+    }
+
+    referenced = set()
+    for module in ("auth.py", "cli.py", "jobs.py", "sync.py", "schedule.py"):
+        source = (Path(__file__).resolve().parents[1] / "jobtrack" / module).read_text(
+            encoding="utf-8"
+        )
+        referenced.update(re.findall(r"section ['\"]+([A-Z][A-Za-z ]+?)['\"]?\.?\s*$", source, re.M))
+        referenced.update(re.findall(r"section\s*\n?[\"']+([A-Z][A-Za-z ]+?)[\"']", source))
+
+    for name in referenced:
+        assert name in headings, f"README has no section named {name!r}"
