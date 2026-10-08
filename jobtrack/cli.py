@@ -447,8 +447,8 @@ def cmd_schedule(args: argparse.Namespace) -> int:
     if not token_ok:
         console.print(
             "\n[red]The saved Gmail token is not usable, so the daily sync is failing.[/red]\n"
-            "Run [bold]jobtrack auth[/bold] to re-authorise — and see the README section\n"
-            '"Making the token last" so you stop having to do this every week.'
+            "Run [bold]jobtrack auth[/bold] to re-authorise — see the README section\n"
+            '"Authorize Gmail" for why this happens weekly and how to stop it.'
         )
     elif last is not None and (datetime.now(timezone.utc) - last) > STALE_AFTER:
         console.print(
