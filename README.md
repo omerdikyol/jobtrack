@@ -76,12 +76,27 @@ You get:
 
 - **Overview:** current stages, active opportunities, interview count, response rate, an eight-week activity chart, role categories, follow-ups, and recent mail.
 - **Applications:** searchable, sortable list and board views; stage filters; CSV export of the current view; historical snapshots.
-- **Application details:** chronological email history, **Open in Gmail** links into the original conversation, classification confidence, notes, follow-up date, and an optional status correction.
+- **Application details:** chronological email history, **Open in Gmail** links into the original conversation, classification confidence, notes, follow-up date, and an optional status correction — see [below](#one-application-end-to-end).
 - **Activity:** recent recruiting messages and persistent sync history.
 - **Sync options:** lookback, upper date bound, maximum messages, custom Gmail search, whether to track mail you sent yourself, and reclassification.
 - **Settings:** provider connection cards, masked API keys, live model discovery, a searchable multi-model picker, consensus review, and a sample-email team test.
 
 Dialogs support Escape, keyboard navigation, and native focus containment.
+
+### One application, end to end
+
+Every card is backed by the emails that produced it. The timeline below shows a
+single application: each event with the sender, the moment it arrived, the
+snippet that earned its label, a link into the original Gmail conversation, and
+a note explaining how it was classified and how confident the rules were.
+
+![Application detail](docs/screenshots/application-detail.png)
+
+This is the view that settles arguments with yourself at 2am. "Did they ever
+reply, or did I just wait?" is answerable from one panel, because the status is
+derived from the same events shown underneath it rather than typed in by hand.
+Correct it when the mail disagrees, and the correction sticks across later
+syncs.
 
 ### Preview before importing
 
