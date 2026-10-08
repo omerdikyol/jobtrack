@@ -132,6 +132,16 @@ selects another database and `--json` renders machine-readable output.
 - [HTTP API](docs/api.md) — every endpoint
 - [SECURITY.md](SECURITY.md) — the Gmail scope, on-disk files, and how to report an issue
 
+## Code map
+
+- [sync.py](jobtrack/sync.py) handles import ordering, duplicate detection, preview mode, and classification handoff.
+- [classify.py](jobtrack/classify.py) contains the offline relevance and lifecycle rules.
+- [store.py](jobtrack/store.py) persists applications and their email-event history.
+- [web.py](jobtrack/web.py) exposes the local workspace; [the web tests](tests/test_web.py) exercise timelines and API behavior.
+- [Classifier tests](tests/test_classify.py) use explicit email examples to check event labels and irrelevant-mail rejection.
+
+The synthetic screenshots and rules-only mode provide a way to explore the project without sending email content to a model provider.
+
 ## Development
 
 ```bash
