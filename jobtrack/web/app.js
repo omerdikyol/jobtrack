@@ -534,7 +534,7 @@ async function startSync(preview = false, quick = false) {
   const payload = quick
     ? quick === "all"
       ? { since: "0", limit: 0, recheck: true }
-      : { limit: 100, recheck: false }
+      : { limit: 0, recheck: false }
     : {
         since: $("sync-since").value || "365",
         before: $("sync-before").value || null,
