@@ -1,4 +1,11 @@
-# jobtrack
+<h1 align="center">jobtrack</h1>
+
+<p align="center">
+  <img alt="language: Python" src="https://img.shields.io/badge/language-Python-3776AB">
+  <img alt="backend: FastAPI" src="https://img.shields.io/badge/backend-FastAPI-009688">
+  <img alt="storage: SQLite" src="https://img.shields.io/badge/storage-SQLite-003B57">
+  <img alt="license: MIT" src="https://img.shields.io/badge/license-MIT-green">
+</p>
 
 A local job-search workspace built from the recruiting mail already in your
 Gmail. Find applications, assessments, interviews, offers, and rejections; follow
