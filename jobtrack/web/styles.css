@@ -1,28 +1,31 @@
-/* Jobtrack workspace. Charcoal and amber follow the personal site and tezb. */
+/* Jobtrack workspace, in the look of the tezb home page (Omerverse): system
+   sans with tabular figures so numbers line up, lower-case labels, plain
+   cards, and one amber accent that marks only what is selected. Nothing is
+   fetched from a font CDN. */
 :root {
   color-scheme: light;
-  --bg: #f6f3ec;
-  --surface: #fffdf8;
-  --surface-2: #eeebe2;
-  --ink: #171a20;
-  --muted: #616a78;
-  --dim: #7c8390;
-  --line: #d9d5ca;
-  --line-strong: #b9b1a1;
-  --accent: #95600b;
-  --accent-ink: #fffdf8;
-  --cyan: #0d7080;
+  --bg: #f5f3ee;
+  --surface: #fffefb;
+  --surface-2: #f0ede6;
+  --ink: #1f1d1a;
+  --muted: #67625a;
+  --dim: #9b958b;
+  --line: #e5e1d8;
+  --line-strong: #d2cdc2;
+  --accent: #b06f12;
+  --accent-ink: #fffaf0;
+  --cyan: #3c74a3;
   --green: var(--accent);
-  --green-dark: #ad751b;
+  --green-dark: #95600b;
   --lime: var(--accent-ink);
   --pale: var(--surface-2);
-  --applied: #5386ad;
-  --assessment: #c99838;
-  --interview: #369b78;
-  --offer: #4ba965;
-  --rejected: #ca6570;
-  --outreach: #9c82cc;
-  --incomplete: #999486;
+  --applied: #3c74a3;
+  --assessment: #a8700f;
+  --interview: #2d8452;
+  --offer: #4b9a3f;
+  --rejected: #c23f2e;
+  --outreach: #8268b8;
+  --incomplete: #9b958b;
   --role-0: var(--accent);
   --role-1: var(--applied);
   --role-2: var(--interview);
@@ -31,33 +34,34 @@
   --role-5: var(--rejected);
   --role-6: var(--offer);
   --role-7: var(--incomplete);
-  --mono:
-    "JetBrains Mono", "IBM Plex Mono", "SFMono-Regular", ui-monospace,
-    "Cascadia Mono", Menlo, Consolas, monospace;
-  --radius: 6px;
+  --sans:
+    ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text",
+    "Segoe UI", system-ui, sans-serif;
+  --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --radius: 10px;
   --sidebar: 0px;
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #0a0b0d;
-  --surface: #101114;
-  --surface-2: #17191e;
-  --ink: #dfe3e8;
-  --muted: #9aa3b1;
-  --dim: #747e8d;
-  --line: #242830;
-  --line-strong: #373e49;
-  --accent: #e3b341;
-  --accent-ink: #151108;
-  --green-dark: #f3c75e;
-  --cyan: #5ad1e0;
-  --applied: #76a7ce;
-  --assessment: #dfb253;
-  --interview: #55b69b;
-  --offer: #70c58a;
-  --rejected: #e17b85;
+  --bg: #131210;
+  --surface: #1a1916;
+  --surface-2: #22211d;
+  --ink: #ebe7df;
+  --muted: #a29c91;
+  --dim: #6e6960;
+  --line: #2a2824;
+  --line-strong: #3a3731;
+  --accent: #e0a84a;
+  --accent-ink: #1a1408;
+  --green-dark: #eab862;
+  --cyan: #6f9fc6;
+  --applied: #6f9fc6;
+  --assessment: #dca244;
+  --interview: #72c191;
+  --offer: #8fcf7a;
+  --rejected: #e5705f;
   --outreach: #b399dc;
-  --incomplete: #ada697;
+  --incomplete: #a29c91;
 }
 * {
   box-sizing: border-box;
@@ -69,8 +73,8 @@ body {
   color: var(--ink);
 }
 body {
-  font: 12px/1.5 var(--mono);
-  font-variant-ligatures: none;
+  font: 14px/1.45 var(--sans);
+  font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
 }
 button,
@@ -117,11 +121,11 @@ h1 {
   line-height: 1.25;
 }
 h2 {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 550;
 }
 h3 {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 550;
 }
 [hidden] {
@@ -159,71 +163,85 @@ span[data-icon] svg {
 .skip-link:focus {
   top: 10px;
 }
+/* a plain bar across the top, not a floating card; tabs are text with an
+   accent underline, the only place the accent marks navigation */
 .app-header {
   display: flex;
-  gap: 25px;
+  gap: 1.25rem;
   align-items: center;
-  margin: 12px 18px 0;
-  padding: 9px 12px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--surface);
+  height: 3.25rem;
+  padding: 0 1.25rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
   position: sticky;
-  top: 10px;
+  top: 0;
   z-index: 10;
 }
 .brand {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 0.5rem;
   white-space: nowrap;
-  font-size: 17px;
-  letter-spacing: -0.7px;
-  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+  font-weight: 650;
 }
 .brand-symbol {
-  width: 27px;
-  height: 27px;
+  width: 20px;
+  height: 20px;
   display: grid;
   place-items: center;
-  border: 1px solid var(--accent);
-  color: var(--accent);
-  font-size: 12px;
-  letter-spacing: -1px;
-  border-radius: 4px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 5px;
 }
 .brand-dot {
-  color: var(--accent);
+  display: none;
 }
 .app-header nav {
   display: flex;
-  gap: 4px;
-  align-items: center;
+  gap: 1.1rem;
+  align-self: stretch;
 }
 .nav-item {
+  position: relative;
   display: flex;
   gap: 7px;
   align-items: center;
   white-space: nowrap;
-  padding: 6px 9px;
-  border-radius: 4px;
+  padding: 0 0.1rem;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 14px;
+}
+.nav-item [data-icon] {
+  display: none;
 }
 .nav-item:hover {
-  background: var(--surface-2);
   color: var(--ink);
 }
 .nav-item.selected {
+  color: var(--ink);
+  font-weight: 600;
+}
+.nav-item.selected::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
   background: var(--accent);
-  color: var(--accent-ink);
+  border-radius: 2px 2px 0 0;
 }
 .nav-count {
-  font-size: 10px;
-  padding: 0 4px;
-  border: 1px solid currentColor;
-  border-radius: 3px;
-  opacity: 0.8;
+  font-size: 12px;
+  font-weight: 400;
+  padding: 0 0.45rem;
+  background: var(--surface-2);
+  color: var(--muted);
+  border-radius: 999px;
 }
 .header-tools {
   margin-left: auto;
@@ -236,27 +254,33 @@ span[data-icon] svg {
   align-items: center;
   justify-content: center;
   gap: 7px;
-  background: var(--surface);
-  border: 1px solid var(--line-strong);
-  border-radius: 4px;
-  padding: 7px 10px;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  height: 2rem;
+  padding: 0 0.75rem;
   white-space: nowrap;
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.3;
+  color: var(--muted);
 }
 .button:hover {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
 }
+/* the one action that matters on a screen is drawn in ink, not accent */
 .button-primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-ink);
-  font-weight: 600;
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--bg);
+  font-weight: 500;
 }
 .button-primary:hover {
-  background: var(--green-dark);
-  color: var(--accent-ink);
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--bg);
+  opacity: 0.9;
 }
 .button-danger {
   border-color: color-mix(in srgb, var(--rejected) 45%, var(--line));
@@ -268,20 +292,20 @@ span[data-icon] svg {
   color: var(--rejected);
 }
 .icon-button {
-  padding: 7px;
-  width: 31px;
-  height: 31px;
+  padding: 0;
+  width: 2rem;
+  height: 2rem;
 }
 .sync-actions {
   position: relative;
   display: flex;
 }
 .sync-actions > #sync-button {
-  border-radius: 4px 0 0 4px;
+  border-radius: 6px 0 0 6px;
 }
 .sync-actions > #sync-menu-toggle {
-  border-radius: 0 4px 4px 0;
-  border-left-color: var(--accent-ink);
+  border-radius: 0 6px 6px 0;
+  border-left-color: color-mix(in srgb, var(--bg) 35%, var(--ink));
 }
 .sync-menu {
   position: absolute;
@@ -305,12 +329,12 @@ span[data-icon] svg {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: var(--accent);
-  font-size: 10px;
+  color: var(--muted);
+  font-size: 13px;
   padding: 0;
 }
 .text-button:hover {
-  text-decoration: underline;
+  color: var(--ink);
 }
 .workspace {
   max-width: 1700px;
@@ -322,19 +346,17 @@ span[data-icon] svg {
   justify-content: space-between;
   gap: 15px;
   padding: 13px 20px 10px;
-  font-size: 10px;
+  font-size: 12.5px;
   color: var(--dim);
 }
 .breadcrumb {
   display: flex;
   gap: 10px;
   align-items: center;
-  letter-spacing: 0.07em;
 }
 .breadcrumb strong {
   font-weight: 400;
   color: var(--muted);
-  text-transform: uppercase;
 }
 .breadcrumb span {
   color: var(--line-strong);
@@ -343,12 +365,11 @@ span[data-icon] svg {
   display: flex;
   gap: 18px;
   align-items: center;
-  letter-spacing: 0.04em;
-  font-size: 9px;
+  font-size: 12px;
 }
 .status-strip .text-button {
   color: var(--muted);
-  font-size: 9px;
+  font-size: 12px;
 }
 .connection-dot,
 .live-dot {
@@ -370,35 +391,38 @@ main {
   justify-content: space-between;
   align-items: center;
   gap: 14px;
-  border-bottom: 1px solid var(--line);
-  padding: 0 0 13px;
-  margin-bottom: 20px;
+  padding: 0;
+  margin-bottom: 1.25rem;
 }
 .category-switch {
-  display: flex;
-  gap: 4px;
+  display: inline-flex;
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 2px;
 }
 .category-button {
   display: flex;
   gap: 7px;
   align-items: center;
-  border: 1px solid var(--line);
   color: var(--muted);
-  padding: 6px 12px;
+  padding: 0.25rem 0.75rem;
   border-radius: 4px;
-  font-size: 11px;
+  font-size: 13px;
 }
 .category-button:hover {
   color: var(--ink);
-  border-color: var(--line-strong);
 }
 .category-button.selected {
-  border-color: var(--accent);
+  color: var(--ink);
+  background: var(--surface-2);
+  font-weight: 500;
+}
+.category-button.selected svg {
   color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
 }
 #category-context {
-  font-size: 10px;
+  font-size: 12.5px;
   color: var(--dim);
 }
 .page-heading {
@@ -409,7 +433,7 @@ main {
   margin-bottom: 17px;
 }
 .page-heading p {
-  font-size: 11px;
+  font-size: 13px;
   margin-top: 6px;
   color: var(--muted);
 }
@@ -421,8 +445,7 @@ main {
   justify-content: flex-end;
 }
 .eyebrow {
-  font-size: 9px;
-  letter-spacing: 0.14em;
+  font-size: 12px;
   color: var(--dim);
   margin-bottom: 7px;
   display: flex;
@@ -433,7 +456,7 @@ main {
   display: flex;
   gap: 7px;
   align-items: center;
-  font-size: 10px;
+  font-size: 12.5px;
   color: var(--dim);
 }
 .sync-caption svg {
@@ -443,54 +466,52 @@ main {
 .metrics {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 9px;
-  margin-bottom: 19px;
+  gap: 0.75rem 1.25rem;
+  margin-bottom: 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.85rem 1rem;
 }
 .metric {
-  border: 1px solid var(--line);
-  background: var(--surface);
-  border-radius: 6px;
-  padding: 13px 15px;
+  display: flex;
+  flex-direction: column;
   min-width: 0;
 }
 .metric-label {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  order: 2;
   color: var(--muted);
-  font-size: 10px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  font-size: 12.5px;
+  margin-top: 0.05rem;
 }
 .metric-label svg {
-  width: 13px;
-  height: 13px;
-  color: var(--dim);
+  display: none;
 }
 .metric-value {
-  font-size: 29px;
+  order: 1;
+  font-size: 26px;
   line-height: 1.2;
-  letter-spacing: -1px;
-  margin: 8px 0;
-  color: var(--accent);
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  font-weight: 550;
+  white-space: nowrap;
 }
 .metric-value small {
-  font-size: 17px;
+  font-size: 16px;
   margin-left: 2px;
   color: var(--muted);
 }
 .metric-foot {
+  order: 3;
   color: var(--dim);
-  font-size: 9px;
-  line-height: 1.5;
+  font-size: 12px;
+  line-height: 1.4;
 }
 .overview-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
-  gap: 13px;
-  margin-bottom: 15px;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
 }
 .lower-grid {
   grid-template-columns: 1fr 1.3fr;
@@ -498,9 +519,9 @@ main {
 .panel {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius);
   min-width: 0;
-  padding: 13px 15px;
+  padding: 0.85rem 1rem;
 }
 .panel-heading {
   display: flex;
@@ -510,13 +531,15 @@ main {
   margin-bottom: 12px;
 }
 .panel-heading h2 {
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  font-size: 10px;
-  color: var(--muted);
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
 }
 .panel-heading p {
-  font-size: 9px;
+  font-size: 12.5px;
   color: var(--dim);
   margin-top: 4px;
 }
@@ -526,21 +549,21 @@ main {
 .small-tag,
 .count-bubble,
 .filter-count {
-  border: 1px solid var(--line-strong);
-  padding: 1px 5px;
-  border-radius: 3px;
-  color: var(--dim);
-  font-size: 9px;
+  background: var(--surface-2);
+  padding: 0 0.45rem;
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
 }
 .small-tag {
-  letter-spacing: 0.06em;
-  font-size: 8px;
+  font-size: 11px;
 }
 .chart-total {
   display: flex;
   gap: 9px;
   align-items: baseline;
-  font-size: 9px;
+  font-size: 12px;
   color: var(--dim);
 }
 .chart-total strong {
@@ -576,8 +599,7 @@ main {
 .chart-bar {
   width: 100%;
   max-width: 65px;
-  background: color-mix(in srgb, var(--accent) 35%, var(--surface));
-  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--surface));
+  background: var(--line-strong);
   position: relative;
   min-height: 2px;
   border-radius: 2px 2px 0 0;
@@ -591,11 +613,11 @@ main {
   left: 0;
   width: 100%;
   text-align: center;
-  font-size: 9px;
+  font-size: 12px;
   color: var(--muted);
 }
 .chart-label {
-  font-size: 8px;
+  font-size: 11px;
   color: var(--dim);
   white-space: nowrap;
   padding-top: 8px;
@@ -610,7 +632,7 @@ main {
   display: flex;
   align-items: center;
   gap: 12px;
-  font-size: 10px;
+  font-size: 12.5px;
 }
 .pipeline-name {
   width: 90px;
@@ -658,7 +680,7 @@ main {
   display: flex;
   align-items: center;
   gap: 12px;
-  font-size: 10px;
+  font-size: 12.5px;
 }
 .role-name {
   flex: 0 0 40%;
@@ -699,8 +721,8 @@ main {
   width: 100%;
   border-top: 1px solid var(--line);
   padding: 11px 0 0;
-  font-size: 10px;
-  color: var(--accent);
+  font-size: 13px;
+  color: var(--muted);
 }
 .panel-footer-link:hover {
   color: var(--ink);
@@ -715,7 +737,7 @@ main {
   min-width: 30px;
   display: grid;
   place-items: center;
-  font-size: 10px;
+  font-size: 12.5px;
   font-weight: 600;
 }
 .attention-item,
@@ -738,7 +760,7 @@ main {
 }
 .attention-main strong {
   display: block;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -746,7 +768,7 @@ main {
 }
 .attention-main small {
   display: block;
-  font-size: 9px;
+  font-size: 12px;
   color: var(--dim);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -754,7 +776,7 @@ main {
   margin-top: 2px;
 }
 .attention-reason {
-  font-size: 8px;
+  font-size: 11px;
   max-width: 110px;
   color: var(--assessment);
   text-align: right;
@@ -763,16 +785,16 @@ main {
   flex: 1;
   min-width: 0;
   color: var(--muted);
-  font-size: 9px;
+  font-size: 12px;
 }
 .recent-text strong {
   color: var(--ink);
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 500;
 }
 .recent-text small {
   display: block;
-  font-size: 9px;
+  font-size: 12px;
   color: var(--dim);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -780,7 +802,7 @@ main {
   margin-top: 3px;
 }
 .recent-time {
-  font-size: 9px;
+  font-size: 12px;
   color: var(--dim);
   white-space: nowrap;
 }
@@ -796,7 +818,7 @@ main {
   padding: 22px 5px;
   text-align: center;
   color: var(--dim);
-  font-size: 11px;
+  font-size: 13px;
 }
 .panel-empty > [data-icon] {
   display: flex;
@@ -808,7 +830,7 @@ main {
   color: var(--muted);
 }
 .panel-empty p {
-  font-size: 10px;
+  font-size: 12.5px;
   margin-top: 5px;
 }
 .page-footnote {
@@ -816,7 +838,7 @@ main {
   align-items: center;
   justify-content: center;
   gap: 7px;
-  font-size: 9px;
+  font-size: 12px;
   color: var(--dim);
   padding-top: 4px;
 }
@@ -838,12 +860,12 @@ main {
   font-size: 19px;
 }
 .welcome p {
-  font-size: 11px;
+  font-size: 13px;
   margin: 10px 0 16px;
 }
 .welcome-footnote {
   display: block;
-  font-size: 9px;
+  font-size: 12px;
   color: var(--dim);
   margin-top: 10px;
 }
@@ -877,14 +899,14 @@ main {
   background: none;
   width: 100%;
   padding: 8px 0;
-  font-size: 11px;
+  font-size: 13px;
   min-width: 0;
 }
 .search-field:focus-within {
   border-color: var(--accent);
 }
 .search-field kbd {
-  font-size: 9px;
+  font-size: 12px;
   color: var(--dim);
   border: 1px solid var(--line);
   padding: 0 4px;
@@ -900,7 +922,7 @@ main {
   gap: 10px;
 }
 .history-control {
-  font-size: 10px;
+  font-size: 12.5px;
   color: var(--dim);
 }
 .history-control input {
@@ -909,7 +931,7 @@ main {
   padding: 6px;
   background: var(--surface);
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12.5px;
   max-width: 145px;
 }
 .view-switch {
@@ -947,7 +969,7 @@ main {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 10px;
+  font-size: 12.5px;
   color: var(--muted);
   padding: 8px 0 11px;
   white-space: nowrap;
@@ -958,7 +980,7 @@ main {
   border-color: var(--accent);
 }
 .filter-tabs .filter-count {
-  font-size: 8px;
+  font-size: 11px;
   color: inherit;
 }
 .sort-label {
@@ -976,7 +998,7 @@ main {
   border: 0;
   background: none;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12.5px;
   max-width: 145px;
 }
 #application-content {
@@ -993,9 +1015,8 @@ main {
   overflow: hidden;
 }
 .application-table th {
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 400;
-  letter-spacing: 0.07em;
   color: var(--dim);
   background: var(--surface-2);
   padding: 10px 13px;
@@ -1005,7 +1026,7 @@ main {
 .application-table td {
   padding: 11px 13px;
   border-bottom: 1px solid var(--line);
-  font-size: 10px;
+  font-size: 12.5px;
   color: var(--muted);
 }
 .application-table tr:last-child td {
@@ -1025,13 +1046,13 @@ main {
 .company-cell strong {
   display: block;
   color: var(--ink);
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 500;
 }
 .company-cell small {
   display: block;
   color: var(--muted);
-  font-size: 9px;
+  font-size: 12px;
   max-width: 400px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1041,7 +1062,7 @@ main {
 .date-caption {
   display: block;
   color: var(--dim);
-  font-size: 8px;
+  font-size: 11px;
   margin-top: 2px;
 }
 .num {
@@ -1059,7 +1080,7 @@ main {
   color: var(--dim);
 }
 .followup-date {
-  font-size: 9px;
+  font-size: 12px;
 }
 .followup-date.due {
   color: var(--assessment);
@@ -1069,7 +1090,7 @@ main {
   gap: 5px;
   align-items: center;
   white-space: nowrap;
-  font-size: 9px;
+  font-size: 12px;
   padding: 3px 6px;
   line-height: 1.2;
   border-radius: 3px;
@@ -1082,7 +1103,7 @@ main {
   justify-content: space-between;
   gap: 15px;
   color: var(--dim);
-  font-size: 9px;
+  font-size: 12px;
   margin-top: 12px;
 }
 .list-footer [data-icon] {
@@ -1102,11 +1123,11 @@ main {
   margin-bottom: 10px;
 }
 .large-empty h2 {
-  font-size: 16px;
+  font-size: 17px;
   margin-bottom: 7px;
 }
 .large-empty p {
-  font-size: 11px;
+  font-size: 13px;
   max-width: 430px;
   margin: 0 auto 17px;
 }
@@ -1129,7 +1150,7 @@ main {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 10px;
+  font-size: 12.5px;
   color: var(--stage-color);
   font-weight: 400;
   margin-bottom: 13px;
@@ -1156,22 +1177,22 @@ main {
   gap: 8px;
 }
 .board-card strong {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 500;
 }
 .board-card p {
-  font-size: 10px;
+  font-size: 12.5px;
   margin: 9px 0;
   color: var(--muted);
 }
 .board-card-foot {
   display: flex;
   justify-content: space-between;
-  font-size: 8px;
+  font-size: 11px;
   color: var(--dim);
 }
 .board-empty {
-  font-size: 9px;
+  font-size: 12px;
   color: var(--dim);
   padding: 9px 0;
 }
@@ -1188,10 +1209,8 @@ main {
   margin-bottom: 21px;
 }
 .activity-date {
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
   color: var(--dim);
-  font-size: 10px;
+  font-size: 12.5px;
   margin-bottom: 8px;
 }
 .activity-row {
@@ -1216,7 +1235,7 @@ main {
   min-width: 0;
 }
 .activity-row h3 {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 400;
   overflow: hidden;
   white-space: nowrap;
@@ -1226,7 +1245,7 @@ main {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 9px;
+  font-size: 12px;
   margin-top: 4px;
 }
 .activity-row small {
@@ -1234,12 +1253,12 @@ main {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: 9px;
+  font-size: 12px;
   color: var(--dim);
   margin-top: 6px;
 }
 .activity-row time {
-  font-size: 9px;
+  font-size: 12px;
   color: var(--dim);
   white-space: nowrap;
 }
@@ -1255,7 +1274,7 @@ main {
   justify-content: space-between;
   align-items: center;
   gap: 10px;
-  font-size: 10px;
+  font-size: 12.5px;
 }
 .run-head strong {
   font-weight: 500;
@@ -1263,14 +1282,14 @@ main {
 }
 .run-head > span {
   color: var(--dim);
-  font-size: 9px;
+  font-size: 12px;
 }
 .run-summary {
   display: flex;
   gap: 24px;
   margin-top: 14px;
   color: var(--dim);
-  font-size: 9px;
+  font-size: 12px;
 }
 .run-summary strong {
   display: block;
@@ -1281,7 +1300,7 @@ main {
 .run-query {
   margin-top: 12px;
   color: var(--dim);
-  font-size: 9px;
+  font-size: 12px;
 }
 .run-query summary {
   cursor: pointer;
@@ -1295,7 +1314,7 @@ main {
 .run-error {
   color: var(--rejected);
   margin-top: 9px;
-  font-size: 11px;
+  font-size: 13px;
 }
 .notice,
 .history-banner {
@@ -1304,7 +1323,7 @@ main {
   border: 1px solid var(--line-strong);
   background: var(--surface);
   border-radius: 4px;
-  font-size: 11px;
+  font-size: 13px;
   color: var(--assessment);
 }
 .history-banner {
@@ -1342,7 +1361,7 @@ dialog::backdrop {
   font-weight: 500;
 }
 .modal-description {
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.7;
   margin-bottom: 21px;
 }
@@ -1353,7 +1372,7 @@ dialog::backdrop {
 }
 form label {
   display: block;
-  font-size: 10px;
+  font-size: 12.5px;
   color: var(--muted);
   margin-bottom: 17px;
   position: relative;
@@ -1368,7 +1387,7 @@ form textarea {
   background: var(--bg);
   border: 1px solid var(--line-strong);
   border-radius: 4px;
-  font-size: 11px;
+  font-size: 13px;
   color: var(--ink);
   min-height: 36px;
 }
@@ -1383,7 +1402,7 @@ form textarea::placeholder {
 }
 .field-hint {
   display: block;
-  font-size: 9px;
+  font-size: 12px;
   color: var(--dim);
   margin-top: 5px;
   line-height: 1.7;
@@ -1392,12 +1411,12 @@ form textarea::placeholder {
   display: flex;
   gap: 8px;
   align-items: center;
-  font-size: 11px;
+  font-size: 13px;
   margin: 14px 0;
 }
 .checkbox-label small {
   color: var(--dim);
-  font-size: 9px;
+  font-size: 12px;
   display: block;
 }
 .checkbox-label input {
@@ -1410,19 +1429,17 @@ form textarea::placeholder {
 }
 .advanced summary {
   cursor: pointer;
-  font-size: 10px;
+  font-size: 12.5px;
   color: var(--accent);
   margin-bottom: 14px;
 }
 .form-section-title {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+  font-size: 12.5px;
   color: var(--dim);
   margin: 21px 0 12px;
 }
 .provider-note {
-  font-size: 10px;
+  font-size: 12.5px;
   color: var(--dim);
   margin-bottom: 18px;
   line-height: 1.6;
@@ -1433,13 +1450,13 @@ form textarea::placeholder {
   top: 0;
 }
 .label-action button {
-  font-size: 9px;
+  font-size: 12px;
 }
 .key-line {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  font-size: 9px;
+  font-size: 12px;
   color: var(--dim);
   margin-top: 7px;
 }
@@ -1450,7 +1467,7 @@ form textarea::placeholder {
   border: 1px solid var(--line-strong);
   border-radius: 4px;
   margin-top: 15px;
-  font-size: 11px;
+  font-size: 13px;
   color: var(--offer);
   overflow-wrap: anywhere;
   line-height: 1.7;
@@ -1488,7 +1505,7 @@ form textarea::placeholder {
   animation: progress 1.6s infinite;
 }
 .preview-heading {
-  font-size: 11px;
+  font-size: 13px;
   margin: 17px 0 9px;
   color: var(--muted);
 }
@@ -1501,14 +1518,14 @@ form textarea::placeholder {
 .preview-row {
   padding: 10px;
   border-bottom: 1px solid var(--line);
-  font-size: 10px;
+  font-size: 12.5px;
 }
 .preview-row strong {
   font-weight: 500;
   color: var(--ink);
 }
 .preview-row p {
-  font-size: 9px;
+  font-size: 12px;
   margin-top: 4px;
 }
 .preview-row:last-child {
@@ -1555,14 +1572,14 @@ form textarea::placeholder {
 .detail-company .company-avatar {
   height: 43px;
   width: 43px;
-  font-size: 15px;
+  font-size: 16px;
 }
 .detail-company h2 {
   font-size: 22px;
   font-weight: 500;
 }
 .detail-company p {
-  font-size: 11px;
+  font-size: 13px;
   margin-top: 5px;
 }
 .detail-head-meta {
@@ -1571,7 +1588,7 @@ form textarea::placeholder {
   align-items: center;
   flex-wrap: wrap;
   color: var(--dim);
-  font-size: 9px;
+  font-size: 12px;
   margin-top: 18px;
 }
 .detail-head-meta .text-button {
@@ -1582,7 +1599,7 @@ form textarea::placeholder {
   border-top: 1px solid var(--line);
 }
 .detail-section h3 {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--muted);
   margin-bottom: 16px;
 }
@@ -1595,7 +1612,7 @@ form textarea::placeholder {
   border-top: 1px solid var(--line);
 }
 .false-positive-section > span {
-  font-size: 9px;
+  font-size: 12px;
   color: var(--dim);
   max-width: 46ch;
   line-height: 1.6;
@@ -1607,7 +1624,7 @@ form textarea::placeholder {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 11px;
+  font-size: 13px;
   color: var(--muted);
   margin-bottom: 9px;
 }
@@ -1625,17 +1642,17 @@ form textarea::placeholder {
   gap: 12px;
 }
 .mark-card-head strong {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 500;
 }
 .mark-card-head span,
 .mark-card-head code {
-  font-size: 9px;
+  font-size: 12px;
   color: var(--dim);
   overflow-wrap: anywhere;
 }
 .mark-card p {
-  font-size: 10px;
+  font-size: 12.5px;
   color: var(--muted);
   margin: 6px 0 11px;
   line-height: 1.6;
@@ -1648,14 +1665,14 @@ form textarea::placeholder {
   margin-top: 4px;
 }
 .mark-warning {
-  font-size: 10px;
+  font-size: 12.5px;
   color: var(--assessment);
   line-height: 1.7;
   margin-bottom: 12px;
 }
 .mark-loading,
 .mark-error {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--dim);
   padding: 14px 0;
 }
@@ -1665,7 +1682,7 @@ form textarea::placeholder {
 .detail-edit summary {
   display: flex;
   justify-content: space-between;
-  font-size: 11px;
+  font-size: 13px;
   color: var(--accent);
   cursor: pointer;
   list-style: none;
@@ -1684,7 +1701,7 @@ form textarea::placeholder {
   width: 100%;
 }
 .notes-preview {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--muted);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -1695,7 +1712,7 @@ form textarea::placeholder {
   display: flex;
   gap: 6px;
   align-items: center;
-  font-size: 9px;
+  font-size: 12px;
   color: var(--assessment);
   margin-top: 10px;
 }
@@ -1738,16 +1755,16 @@ form textarea::placeholder {
 .timeline-head time {
   margin-left: auto;
   color: var(--dim);
-  font-size: 9px;
+  font-size: 12px;
 }
 .timeline-event h4 {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 500;
   line-height: 1.6;
   margin-bottom: 5px;
 }
 .timeline-sender {
-  font-size: 9px;
+  font-size: 12px;
   color: var(--dim);
   word-break: break-word;
 }
@@ -1757,14 +1774,14 @@ form textarea::placeholder {
   border: 1px solid var(--line);
   border-radius: 4px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12.5px;
   line-height: 1.7;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   margin: 12px 0 10px;
 }
 .classification {
-  font-size: 9px;
+  font-size: 12px;
   color: var(--dim);
   margin-top: 10px;
 }
@@ -1780,7 +1797,7 @@ form textarea::placeholder {
   background: var(--surface-2);
   color: var(--assessment);
   border: 1px solid var(--line);
-  font-size: 10px;
+  font-size: 12.5px;
 }
 .sync-dock {
   position: fixed;
@@ -1807,13 +1824,13 @@ form textarea::placeholder {
 }
 .sync-dock strong {
   display: block;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 500;
 }
 .sync-dock span:not([data-icon]) {
   display: block;
   color: var(--dim);
-  font-size: 9px;
+  font-size: 12px;
   margin-top: 3px;
 }
 .toast {
@@ -1827,7 +1844,7 @@ form textarea::placeholder {
   border-radius: 4px;
   padding: 11px 15px;
   z-index: 50;
-  font-size: 11px;
+  font-size: 13px;
   max-width: 90vw;
   box-shadow: 0 7px 30px #0004;
 }
@@ -1863,7 +1880,7 @@ form textarea::placeholder {
     gap: 15px;
   }
   .nav-item {
-    font-size: 10px;
+    font-size: 12.5px;
     padding: 6px 8px;
   }
   .nav-item svg {
@@ -1881,14 +1898,15 @@ form textarea::placeholder {
 }
 @media (max-width: 760px) {
   .app-header {
-    margin: 8px 10px 0;
-    top: 7px;
-    gap: 10px;
+    position: static;
+    height: auto;
+    gap: 0.6rem 1rem;
     flex-wrap: wrap;
-    padding: 9px;
+    padding: 0.6rem 0.9rem 0;
+    padding-top: max(0.6rem, env(safe-area-inset-top));
   }
   .brand {
-    font-size: 15px;
+    font-size: 16px;
   }
   .brand-symbol {
     height: 24px;
@@ -1897,13 +1915,10 @@ form textarea::placeholder {
   .app-header nav {
     order: 3;
     width: 100%;
-    padding-top: 5px;
-    border-top: 1px solid var(--line);
+    align-self: auto;
   }
   .nav-item {
-    padding: 7px 10px;
-    flex: 1;
-    justify-content: center;
+    padding: 0.5rem 0.1rem 0.6rem;
   }
   .nav-item svg {
     display: block;
@@ -1914,7 +1929,7 @@ form textarea::placeholder {
     gap: 4px;
   }
   .header-tools .button {
-    font-size: 10px;
+    font-size: 12.5px;
     padding: 6px 8px;
   }
   .header-tools .icon-button {
@@ -1929,7 +1944,7 @@ form textarea::placeholder {
     display: none;
   }
   .breadcrumb {
-    font-size: 9px;
+    font-size: 12px;
     gap: 7px;
   }
   main {
@@ -1948,7 +1963,7 @@ form textarea::placeholder {
   .category-button {
     flex: 1;
     justify-content: center;
-    font-size: 10px;
+    font-size: 12.5px;
   }
   .page-heading {
     gap: 12px;
@@ -1959,10 +1974,10 @@ form textarea::placeholder {
     font-size: 21px;
   }
   .page-heading p {
-    font-size: 10px;
+    font-size: 12.5px;
   }
   .sync-caption {
-    font-size: 8px;
+    font-size: 11px;
     gap: 4px;
     max-width: 95px;
     text-align: right;
@@ -1976,16 +1991,16 @@ form textarea::placeholder {
     margin-bottom: 15px;
   }
   .metric {
-    padding: 11px;
+    padding: 0;
   }
   .metric-label {
-    font-size: 9px;
+    font-size: 12px;
   }
   .metric-value {
     font-size: 25px;
   }
   .metric-foot {
-    font-size: 8px;
+    font-size: 11px;
   }
   .overview-grid,
   .lower-grid {
@@ -2044,7 +2059,7 @@ form textarea::placeholder {
     width: 25px;
     height: 25px;
     min-width: 25px;
-    font-size: 9px;
+    font-size: 12px;
   }
   .company-cell {
     gap: 8px;
@@ -2076,7 +2091,7 @@ form textarea::placeholder {
     max-height: calc(100dvh - 28px);
   }
   .modal-header h2 {
-    font-size: 17px;
+    font-size: 18px;
   }
   .form-grid {
     gap: 11px;
@@ -2098,7 +2113,7 @@ form textarea::placeholder {
     gap: 6px;
   }
   .timeline-head time {
-    font-size: 8px;
+    font-size: 11px;
   }
   .board {
     grid-auto-columns: 215px;
@@ -2112,7 +2127,7 @@ form textarea::placeholder {
     margin-left: auto;
   }
   .page-footnote {
-    font-size: 8px;
+    font-size: 11px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -2141,7 +2156,7 @@ form textarea::placeholder {
   border: 0;
   border-bottom: 2px solid transparent;
   padding: 12px 2px;
-  font-size: 12px;
+  font-size: 14px;
   color: var(--muted);
 }
 .settings-tabs > button[aria-selected="true"] {
@@ -2155,7 +2170,7 @@ form textarea::placeholder {
   margin-left: 6px;
   border: 1px solid var(--line);
   border-radius: 4px;
-  font-size: 10px;
+  font-size: 12.5px;
   padding: 1px 4px;
 }
 .settings-workspace {
@@ -2194,21 +2209,21 @@ form textarea::placeholder {
   border: 1px solid var(--line);
   background: var(--surface-2);
   border-radius: 7px;
-  font-size: 10px;
+  font-size: 12.5px;
   color: var(--accent);
 }
 .provider-mark.large {
   flex-basis: 42px;
   height: 42px;
-  font-size: 13px;
+  font-size: 15px;
 }
 .provider-rail strong {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 500;
   display: block;
 }
 .provider-rail small {
-  font-size: 9px;
+  font-size: 12px;
   color: var(--dim);
   display: block;
   margin-top: 4px;
@@ -2232,13 +2247,13 @@ form textarea::placeholder {
 }
 .settings-section-head h3,
 .team-strategy h3 {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 500;
   margin: 0 0 6px;
 }
 .settings-section-head p,
 .team-strategy p {
-  font-size: 10px;
+  font-size: 12.5px;
   color: var(--muted);
   margin: 0;
   line-height: 1.6;
@@ -2275,7 +2290,7 @@ form textarea::placeholder {
 }
 .connection-editor .provider-note,
 .model-picker .provider-note {
-  font-size: 10px;
+  font-size: 12.5px;
   line-height: 1.7;
   overflow-wrap: anywhere;
   margin: 15px 0;
@@ -2301,11 +2316,11 @@ form textarea::placeholder {
   width: 22px;
 }
 .connection-next strong {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 500;
 }
 .connection-next p {
-  font-size: 10px;
+  font-size: 12.5px;
   color: var(--muted);
   margin: 6px 0;
 }
@@ -2339,7 +2354,7 @@ form textarea::placeholder {
   background: none;
   border: 1px solid transparent;
   border-radius: 4px;
-  font-size: 10px;
+  font-size: 12.5px;
   padding: 8px 12px;
   color: var(--muted);
 }
@@ -2363,16 +2378,16 @@ form textarea::placeholder {
   border-right: 0;
 }
 .review-flow span {
-  font-size: 9px;
+  font-size: 12px;
   color: var(--accent);
   margin-right: 8px;
 }
 .review-flow strong {
-  font-size: 10px;
+  font-size: 12.5px;
   font-weight: 500;
 }
 .review-flow p {
-  font-size: 9px;
+  font-size: 12px;
   color: var(--dim);
   margin: 8px 0 0;
   line-height: 1.6;
@@ -2418,19 +2433,19 @@ form textarea::placeholder {
   accent-color: var(--accent);
 }
 .model-option strong {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 400;
   overflow-wrap: anywhere;
 }
 .model-option small {
   display: block;
-  font-size: 9px;
+  font-size: 12px;
   color: var(--dim);
   margin-top: 6px;
 }
 .catalog-empty {
   text-align: center;
-  font-size: 10px;
+  font-size: 12.5px;
   color: var(--dim);
   padding: 26px 12px;
   line-height: 1.9;
@@ -2454,7 +2469,7 @@ form textarea::placeholder {
 }
 .selected-team .settings-section-head label {
   margin: 0;
-  font-size: 9px;
+  font-size: 12px;
   flex: 0 0 140px;
 }
 .team-members {
@@ -2476,18 +2491,18 @@ form textarea::placeholder {
   min-width: 0;
 }
 .team-member strong {
-  font-size: 10px;
+  font-size: 12.5px;
   font-weight: 500;
   overflow-wrap: anywhere;
 }
 .team-member small {
-  font-size: 9px;
+  font-size: 12px;
   color: var(--muted);
   display: block;
   margin-top: 4px;
 }
 .team-member .text-button {
-  font-size: 8px;
+  font-size: 11px;
 }
 .selected-team > .field-hint {
   margin-top: 14px;
@@ -2495,7 +2510,7 @@ form textarea::placeholder {
 .recent-decisions {
   border-top: 1px solid var(--line);
   padding-top: 18px;
-  font-size: 10px;
+  font-size: 12.5px;
 }
 .recent-decisions > summary {
   cursor: pointer;
@@ -2522,11 +2537,11 @@ form textarea::placeholder {
   color: var(--assessment);
 }
 .review-outcome strong {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 500;
 }
 .review-outcome span {
-  font-size: 10px;
+  font-size: 12.5px;
   color: var(--muted);
   line-height: 1.7;
 }
@@ -2536,7 +2551,7 @@ form textarea::placeholder {
 }
 .review-round > summary {
   cursor: pointer;
-  font-size: 10px;
+  font-size: 12.5px;
   color: var(--muted);
 }
 .review-opinions {
@@ -2553,30 +2568,30 @@ form textarea::placeholder {
 }
 .review-opinions small {
   color: var(--dim);
-  font-size: 9px;
+  font-size: 12px;
   display: block;
 }
 .review-opinions strong {
   display: block;
-  font-size: 10px;
+  font-size: 12.5px;
   font-weight: 500;
   margin: 6px 0;
   overflow-wrap: anywhere;
 }
 .review-opinions p {
-  font-size: 10px;
+  font-size: 12.5px;
   color: var(--accent);
   margin: 12px 0 6px;
 }
 .review-opinions span {
-  font-size: 9px;
+  font-size: 12px;
   color: var(--muted);
 }
 .review-opinions blockquote {
   margin: 12px 0 0;
   border-left: 2px solid var(--line-strong);
   padding-left: 10px;
-  font-size: 10px;
+  font-size: 12.5px;
   line-height: 1.7;
   color: var(--muted);
 }
@@ -2589,7 +2604,7 @@ form textarea::placeholder {
   border-bottom: 1px solid var(--line);
 }
 .saved-review > summary {
-  font-size: 10px;
+  font-size: 12.5px;
   cursor: pointer;
 }
 @media (max-width: 680px) {
@@ -2611,7 +2626,7 @@ form textarea::placeholder {
     min-width: 0;
   }
   .provider-rail small {
-    font-size: 8px;
+    font-size: 11px;
   }
   .team-strategy {
     flex-direction: column;
@@ -2626,7 +2641,7 @@ form textarea::placeholder {
     margin-top: 6px;
   }
   .review-flow p {
-    font-size: 8px;
+    font-size: 11px;
   }
   .team-members,
   .settings-defaults {
@@ -2657,4 +2672,10 @@ form textarea::placeholder {
     margin-bottom: -18px;
     flex-wrap: wrap;
   }
+}
+
+code,
+kbd,
+.run-query code {
+  font-family: var(--mono);
 }
