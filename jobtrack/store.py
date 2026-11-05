@@ -10,7 +10,10 @@ import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
 
+from dataclasses import replace
+
 from jobtrack.categories import CATEGORIES, identity_key, infer_category
+from jobtrack.classify import fold, is_assessment_platform
 from jobtrack.models import (
     STATUS_RANK,
     Application,
@@ -90,6 +93,66 @@ def _fold_name(text: str | None) -> str:
         .encode("ascii", "ignore")
         .decode()
     )
+
+
+FOLLOW_UP_KINDS = ("rejected", "assessment", "interview", "offer")
+
+
+def _mail_text(msg: EmailMessage) -> str:
+    return fold(" ".join(filter(None, [msg.subject, msg.snippet, (msg.body or "")[:8000]])))
+
+
+def _named_in(text: str, names: dict, case_sensitive: bool = False, min_length: int = 6):
+    """The key of the one name that appears in ``text`` as whole words, else None.
+
+    A name inside a longer matched name ("Software Engineer" in "Senior
+    Software Engineer") yields to it; two unrelated names mean no answer.
+    """
+    haystack = text if case_sensitive else text.casefold()
+    hits = {}
+    for key, name in names.items():
+        needle = fold(name or "").strip()
+        if not case_sensitive:
+            needle = needle.casefold()
+        if len(needle) < min_length:
+            continue
+        if re.search(r"(?<!\w)" + re.escape(needle) + r"(?!\w)", haystack):
+            hits[key] = needle
+    longest = [
+        key
+        for key, needle in hits.items()
+        if not any(other != needle and needle in other for other in hits.values())
+    ]
+    distinct = {hits[key] for key in longest}
+    return longest[0] if len(distinct) == 1 else None
+
+
+def _similar_titles(a: str, b: str) -> bool:
+    """Reworded titles share most words; different jobs at one company do not.
+
+    "software engineer i ccip" / "senior software engineer ccip" pass,
+    "part time sw product design engineer" / "product design intern" do not.
+    An unstated title is compatible with anything.
+    """
+    words_a, words_b = set((a or "").split()), set((b or "").split())
+    if not words_a or not words_b:
+        return True
+    return len(words_a & words_b) / len(words_a | words_b) >= 0.5
+
+
+def _different_requisition(a: str, b: str) -> bool:
+    """Both titles carry a job number and the numbers differ ("3365" / "3246")."""
+    ids_a = set(re.findall(r"\b\d{3,}\b", a or ""))
+    ids_b = set(re.findall(r"\b\d{3,}\b", b or ""))
+    return bool(ids_a and ids_b and not ids_a & ids_b)
+
+
+def _word_prefix(a: str, b: str) -> bool:
+    """True when one key is the other plus trailing words ("bcg" / "bcg x")."""
+    if not a or not b:
+        return False
+    short, long = sorted((a, b), key=len)
+    return long == short or long.startswith(short + " ")
 
 
 def _from_iso(value: str) -> datetime:
@@ -201,20 +264,29 @@ class Store:
         )
         role_key = normalize_role(cls.role)
         rows = self.conn.execute(
-            "SELECT id, role_key, role FROM applications WHERE company_key = ?",
+            "SELECT id, role_key, role, last_event_at FROM applications WHERE company_key = ?",
             (company_key,),
         ).fetchall()
         if not rows:
             category = infer_category(msg.sender, msg.subject, msg.snippet)
+            wanted = normalize_company(_fold_name(cls.company))
+            candidates = self.conn.execute(
+                "SELECT id, role_key, role, company, last_event_at FROM applications WHERE category = ?",
+                (category,),
+            ).fetchall()
             rows = [
                 r
-                for r in self.conn.execute(
-                    "SELECT id, role_key, role, company FROM applications WHERE category = ?",
-                    (category,),
-                )
-                if normalize_company(_fold_name(r["company"]))
-                == normalize_company(_fold_name(cls.company))
+                for r in candidates
+                if normalize_company(_fold_name(r["company"])) == wanted
             ]
+            if not rows:
+                # "Akamai" and "Akamai Technologies", "BCG" and "BCG X": the same
+                # employer named with and without a qualifier. Roles still decide.
+                rows = [
+                    r
+                    for r in candidates
+                    if _word_prefix(normalize_company(_fold_name(r["company"])), wanted)
+                ]
         exact = next(
             (
                 r
@@ -227,11 +299,82 @@ class Store:
         )
         if exact:
             return int(exact["id"])
+        # "Software Engineer" and "Software Engineer - Data Foundation" are one
+        # posting named twice; accept that only when a single application fits.
+        if role_key and cls.kind != "outreach":
+            similar = [
+                r for r in rows if r["role_key"] and _word_prefix(r["role_key"], role_key)
+            ]
+            if len(similar) == 1:
+                return int(similar[0]["id"])
         # Only attach incomplete identity to an unambiguous application. A
         # known, different role must never disappear into a company-wide match.
         if len(rows) == 1 and (not role_key or not rows[0]["role_key"]):
             return int(rows[0]["id"])
+        # A rejection, test or interview answers an application; when the
+        # company has exactly one still open, a reworded title ("Software
+        # Engineer I, CCIP" / "Senior Software Engineer CCIP") is the same one.
+        if (
+            cls.kind in FOLLOW_UP_KINDS
+            and len(rows) == 1
+            and not _different_requisition(rows[0]["role_key"], role_key)
+            and _similar_titles(rows[0]["role_key"], role_key)
+        ):
+            status = self.conn.execute(
+                "SELECT status FROM applications WHERE id = ?", (rows[0]["id"],)
+            ).fetchone()[0]
+            if status not in ("rejected", "offer"):
+                return int(rows[0]["id"])
+        # Several applications at the company: the mail's own text often names
+        # the role ("your test for the Forward Deployed AI Engineer role").
+        # A mail that states its own, different title is a different job; only
+        # an untitled one is placed by the title its text mentions.
+        if len(rows) > 1 and not role_key:
+            named = _named_in(_mail_text(msg), {r["id"]: r["role"] for r in rows})
+            if named is not None:
+                return int(named)
+            # A reminder from the address that sent the test invitation
+            # continues that application, even when it names no role.
+            sender = (msg.sender_email or "").strip().lower()
+            if sender and cls.kind in FOLLOW_UP_KINDS + ("incomplete",):
+                ids = [r["id"] for r in rows]
+                same_sender = {
+                    row[0]
+                    for row in self.conn.execute(
+                        f"SELECT DISTINCT application_id FROM events WHERE application_id IN ({','.join('?' * len(ids))}) "
+                        "AND instr(lower(sender), ?) > 0",
+                        (*ids, sender),
+                    )
+                }
+                if len(same_sender) == 1:
+                    return int(same_sender.pop())
         return None
+
+    def _company_from_text(self, msg: EmailMessage, cls: Classification) -> Classification:
+        """Name the employer from the mail's text when the sender cannot.
+
+        Assessment platforms (CodeSignal, Wonderlic, ...) write for the company
+        the user applied to, and so does mail whose employer the rules missed.
+        The text names it: only a company already tracked, and only one, counts.
+        """
+        known = cls.company and cls.company != "Unknown"
+        if known and not (is_assessment_platform(msg) and not self._tracks_company(cls.company)):
+            return cls
+        companies = {
+            row[0]: row[0]
+            for row in self.conn.execute(
+                "SELECT DISTINCT company FROM applications WHERE company <> 'Unknown'"
+            )
+        }
+        named = _named_in(_mail_text(msg), companies, case_sensitive=True, min_length=4)
+        return replace(cls, company=named) if named else cls
+
+    def _tracks_company(self, company: str) -> bool:
+        wanted = normalize_company(_fold_name(company))
+        return any(
+            _word_prefix(normalize_company(_fold_name(row[0])), wanted)
+            for row in self.conn.execute("SELECT DISTINCT company FROM applications")
+        )
 
     def _company_aliases(self, application_id: int) -> list[str]:
         """Manual company renames retain the old name for same-thread followups."""
@@ -288,6 +431,7 @@ class Store:
                     "DELETE FROM events WHERE message_id = ?", (msg.message_id,)
                 )
 
+            cls = self._company_from_text(msg, cls)
             application_id = self._find_application(msg, cls)
             if application_id is None and stale_app is not None:
                 original = self.get_application(stale_app)
