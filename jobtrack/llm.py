@@ -381,14 +381,25 @@ def _send(
     config: LLMConfig,
     headers: dict | None = None,
     attempts: int = 3,
+    wake_wait: float = 0,
 ):
-    """POST with a short backoff, so a brief rate limit does not fail the run."""
+    """POST with a short backoff, so a brief rate limit does not fail the run.
+
+    `wake_wait` is how long to keep retrying 503s: a sleeping llama-server answers
+    503 "Loading model" while it reloads the weights.
+    """
     delay = 2.0
-    for attempt in range(attempts):
+    wake_deadline = time.monotonic() + wake_wait
+    attempt = 0
+    while attempt < attempts:
         try:
             return _request_json(url, payload, config.timeout, headers)
         except urllib.error.HTTPError as exc:
-            if exc.code == 429 and attempt < attempts - 1:
+            if exc.code == 503 and time.monotonic() < wake_deadline:
+                time.sleep(2.0)
+                continue
+            attempt += 1
+            if exc.code == 429 and attempt < attempts:
                 time.sleep(delay)
                 delay *= 2
                 continue
@@ -416,6 +427,8 @@ class _BaseLLM:
 
     def __init__(self, config: LLMConfig | None = None):
         self.config = config or LLMConfig.load()
+        # Only the first call of a run waits for a sleeping local server to wake.
+        self._awake = False
 
     @property
     def provider(self) -> str:
@@ -528,8 +541,9 @@ class OpenAICompatLLM(_BaseLLM):
             payload.update(stream=False, max_tokens=1024)
             payload["chat_template_kwargs"] = {"enable_thinking": False}
         url = f"{self.config.base_url}/chat/completions"
+        wake_wait = 0 if self._awake or not self._keyless else 180
         try:
-            body = _send(url, payload, self.config, headers=headers)
+            body = _send(url, payload, self.config, headers=headers, wake_wait=wake_wait)
         except LLMError as exc:
             # Not every compatible server implements response_format. The prompt
             # asks for JSON anyway, and the parser tolerates prose, so retry once.
@@ -537,6 +551,7 @@ class OpenAICompatLLM(_BaseLLM):
                 raise
             payload.pop("response_format", None)
             body = _send(url, payload, self.config, headers=headers)
+        self._awake = True
 
         choices = body.get("choices") or []
         if not choices:
