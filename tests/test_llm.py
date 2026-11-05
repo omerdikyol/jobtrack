@@ -501,3 +501,27 @@ def test_dropped_connection_is_an_llm_error(monkeypatch):
     config = llm_module.LLMConfig(provider="llamacpp", base_url="http://llm:8080/v1")
     with pytest.raises(llm_module.LLMError, match="dropped the connection"):
         llm_module._send("http://llm:8080/v1/chat/completions", {}, config)
+
+
+def test_first_call_waits_for_sleeping_llamacpp_then_later_calls_do_not(monkeypatch):
+    """A sleeping llama-server answers 503 while it reloads; only the first call waits."""
+    import io
+    import urllib.error
+
+    from jobtrack import llm as llm_module
+
+    replies = ["loading", "loading", "ok", "loading"]
+
+    def fake(*args, **kwargs):
+        if replies.pop(0) == "loading":
+            raise urllib.error.HTTPError("u", 503, "Loading model", {}, io.BytesIO(b"{}"))
+        return {"choices": [{"message": {"content": "{}"}}]}
+
+    monkeypatch.setattr(llm_module, "_request_json", fake)
+    monkeypatch.setattr(llm_module.time, "sleep", lambda s: None)
+    llm = llm_module.build_llm(
+        llm_module.LLMConfig(provider="llamacpp", base_url="http://llm:8080/v1")
+    )
+    assert llm.complete("s", "u") == "{}"
+    with pytest.raises(llm_module.LLMError):
+        llm.complete("s", "u")
