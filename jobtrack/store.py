@@ -7,10 +7,9 @@ import os
 import re
 import sqlite3
 import unicodedata
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
-
-from dataclasses import replace
 
 from jobtrack.categories import CATEGORIES, identity_key, infer_category
 from jobtrack.classify import fold, is_assessment_platform
@@ -97,6 +96,7 @@ def _fold_name(text: str | None) -> str:
 
 FOLLOW_UP_KINDS = ("rejected", "assessment", "interview", "offer")
 JUST_ACTIVE_SECONDS = 30 * 60
+CHANNEL_TWIN_DAYS = 14
 
 
 def _mail_text(msg: EmailMessage) -> str:
@@ -311,6 +311,11 @@ class Store:
             ]
             if len(similar) == 1:
                 return int(similar[0]["id"])
+            # The same application announced twice: LinkedIn's confirmation and
+            # the employer's own, with the title worded a little differently.
+            twin = self._other_channel_twin(msg, rows, role_key)
+            if twin is not None:
+                return twin
         # Only attach incomplete identity to an unambiguous application. A
         # known, different role must never disappear into a company-wide match.
         if len(rows) == 1 and (not role_key or not rows[0]["role_key"]):
@@ -353,6 +358,34 @@ class Store:
                 if len(same_sender) == 1:
                     return int(same_sender.pop())
         return None
+
+    def _other_channel_twin(self, msg: EmailMessage, rows, role_key: str) -> int | None:
+        """One application at the company announced by the other channel.
+
+        LinkedIn and the employer's ATS both confirm an application; the only
+        match is a single application with a similar title, first seen within
+        CHANNEL_TWIN_DAYS, whose mail so far all came through the other channel.
+        """
+        linkedin = "linkedin.com" in (msg.sender_email or "").lower()
+        twins = []
+        for r in rows:
+            if not _similar_titles(r["role_key"], role_key):
+                continue
+            senders = [
+                row[0].lower()
+                for row in self.conn.execute(
+                    "SELECT sender FROM events WHERE application_id = ?", (r["id"],)
+                )
+            ]
+            other_channel = senders and all(("linkedin.com" in s) != linkedin for s in senders)
+            first = _from_iso(
+                self.conn.execute(
+                    "SELECT first_seen FROM applications WHERE id = ?", (r["id"],)
+                ).fetchone()[0]
+            )
+            if other_channel and abs((msg.date - first).days) <= CHANNEL_TWIN_DAYS:
+                twins.append(r["id"])
+        return int(twins[0]) if len(twins) == 1 else None
 
     def _just_active_application(self, msg: EmailMessage, cls: Classification) -> int | None:
         """An untitled step of a flow the user is in the middle of.
