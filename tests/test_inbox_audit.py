@@ -185,3 +185,27 @@ def test_untitled_step_joins_the_application_active_moments_before(tmp_path):
         assert step(store, "b2", None, "applied", 10.1, "done") == backend
         # Hours later nothing is "just active": an untitled mail is not guessed.
         assert step(store, "x", None, "applied", 300, "other") not in (web, backend)
+
+
+def test_linkedin_and_employer_confirmations_are_one_application(tmp_path):
+    from datetime import datetime, timedelta, timezone
+
+    day = datetime(2026, 10, 1, tzinfo=timezone.utc)
+
+    def confirm(store, message_id, sender, role, days):
+        return store.record(
+            make_message("Application", sender=sender, message_id=message_id,
+                         thread_id=message_id, date=day + timedelta(days=days)),
+            Classification(kind="applied", score=12, company="Aiven", role=role),
+        )[1]
+
+    linkedin = "LinkedIn <jobs-noreply@linkedin.com>"
+    employer = "Aiven <no-reply@greenhouse-mail.io>"
+    with Store(tmp_path / "t.db") as store:
+        app = confirm(store, "l1", linkedin, "Backend Engineer, ClickHouse", 0)
+        assert confirm(store, "c1", employer, "Senior Backend Engineer - ClickHouse", 1) == app
+        # The same channel twice with a different title is a second application.
+        assert confirm(store, "l2", linkedin, "Senior Backend Engineer, Kafka", 2) != app
+        # So is the other channel a month later.
+        late = confirm(store, "l3", linkedin, "Data Engineer, Pipelines", 3)
+        assert confirm(store, "c2", employer, "Senior Data Engineer - Pipelines", 40) != late
