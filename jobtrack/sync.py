@@ -80,6 +80,8 @@ def run_sync(
     own = (own_address or "").strip().lower()
     analysis_key = getattr(analyzer, "cache_key", "rules-v7")
     known = set() if recheck else store.synced_message_ids()
+    false_positives = store.false_positive_message_ids()
+    known.update(false_positives)
     queries = [query]
     if track_sent:
         # The sent search is small and specific, while the inbound one can
@@ -91,6 +93,8 @@ def run_sync(
             # Earlier runs cached the user's own mail as ignored, which would
             # hide every application they sent. Only IDs are fetched to un-forget it.
             known -= _own_message_ids(client, sent)
+        # A manual false-positive decision survives full rechecks too.
+        known.update(false_positives)
     if run_id is None and not dry_run:
         run_id = store.begin_sync(query)
 

@@ -258,6 +258,15 @@ span[data-icon] svg {
   background: var(--green-dark);
   color: var(--accent-ink);
 }
+.button-danger {
+  border-color: color-mix(in srgb, var(--rejected) 45%, var(--line));
+  color: var(--rejected);
+}
+.button-danger:hover {
+  border-color: var(--rejected);
+  background: color-mix(in srgb, var(--rejected) 7%, var(--surface));
+  color: var(--rejected);
+}
 .icon-button {
   padding: 7px;
   width: 31px;
@@ -403,6 +412,13 @@ main {
   font-size: 11px;
   margin-top: 6px;
   color: var(--muted);
+}
+.heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 .eyebrow {
   font-size: 9px;
@@ -1569,6 +1585,82 @@ form textarea::placeholder {
   font-size: 11px;
   color: var(--muted);
   margin-bottom: 16px;
+}
+.false-positive-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 16px 23px;
+  border-top: 1px solid var(--line);
+}
+.false-positive-section > span {
+  font-size: 9px;
+  color: var(--dim);
+  max-width: 46ch;
+  line-height: 1.6;
+}
+.mark-group {
+  margin-bottom: 20px;
+}
+.mark-group h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 9px;
+}
+.mark-card {
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--bg);
+  padding: 13px 14px;
+  margin-bottom: 8px;
+}
+.mark-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.mark-card-head strong {
+  font-size: 11px;
+  font-weight: 500;
+}
+.mark-card-head span,
+.mark-card-head code {
+  font-size: 9px;
+  color: var(--dim);
+  overflow-wrap: anywhere;
+}
+.mark-card p {
+  font-size: 10px;
+  color: var(--muted);
+  margin: 6px 0 11px;
+  line-height: 1.6;
+}
+.legacy-mark .mark-card-head {
+  display: block;
+}
+.legacy-mark .mark-card-head code {
+  display: block;
+  margin-top: 4px;
+}
+.mark-warning {
+  font-size: 10px;
+  color: var(--assessment);
+  line-height: 1.7;
+  margin-bottom: 12px;
+}
+.mark-loading,
+.mark-error {
+  font-size: 11px;
+  color: var(--dim);
+  padding: 14px 0;
+}
+.mark-error {
+  color: var(--rejected);
 }
 .detail-edit summary {
   display: flex;

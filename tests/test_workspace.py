@@ -59,7 +59,7 @@ def test_migration_preserves_legacy_history_and_is_repeatable(tmp_path):
             assert db.get_application(1).company == "Acme"
             assert db.total_events() == 1
             assert db.get_events(1)[0].message_id == "legacy"
-            assert db.conn.execute("PRAGMA user_version").fetchone()[0] == 3
+            assert db.conn.execute("PRAGMA user_version").fetchone()[0] == 6
             assert db.get_application(1).notes == ""
 
 
@@ -468,7 +468,7 @@ def test_api_assets_activity_and_security(store):
         assert client.get("/assets/" + asset).status_code == 200
     assert len(client.get("/api/activity").json()["events"]) == 1
     assert client.get("/api/activity?limit=999").status_code == 422
-    assert client.get("/api/health").json()["database_version"] == 3
+    assert client.get("/api/health").json()["database_version"] == 6
     assert (
         client.patch(
             "/api/applications/1",

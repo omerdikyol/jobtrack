@@ -20,6 +20,8 @@ from jobtrack.models import (
 )
 from jobtrack.schema import migrate
 
+FALSE_POSITIVE_KEY = "manual:false-positive"
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS applications (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -318,38 +320,8 @@ class Store:
                 application_id = self._create_application(msg, cls)
                 outcome = "created"
 
-            self.conn.execute(
-                """
-                INSERT INTO events
-                    (application_id, message_id, thread_id, kind, subject, sender,
-                     event_date, snippet, confidence, matched, review)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    application_id,
-                    msg.message_id,
-                    msg.thread_id,
-                    cls.kind,
-                    msg.subject,
-                    msg.sender,
-                    _to_iso(msg.date),
-                    msg.snippet,
-                    cls.confidence,
-                    json.dumps(cls.matched),
-                    json.dumps(cls.review) if cls.review else None,
-                ),
-            )
-            if cls.role:
-                self.conn.execute(
-                    "UPDATE applications SET role = ?, role_key = ? WHERE id = ? AND role_key = '' "
-                    "AND NOT EXISTS (SELECT 1 FROM applications other WHERE other.company_key = applications.company_key AND other.role_key = ?)",
-                    (
-                        cls.role,
-                        normalize_role(cls.role),
-                        application_id,
-                        normalize_role(cls.role),
-                    ),
-                )
+            self._insert_event(application_id, msg, cls)
+            self._fill_application_role(application_id, cls)
             self._refresh_application(application_id)
             # A re-classification can move an email to a different application,
             # which changes the old one's derived status.
@@ -364,6 +336,47 @@ class Store:
             "SELECT application_id FROM events WHERE message_id = ?", (message_id,)
         ).fetchone()
         return int(row["application_id"]) if row else None
+
+    def _insert_event(
+        self, application_id: int, msg: EmailMessage, cls: Classification
+    ) -> None:
+        self.conn.execute(
+            """
+            INSERT INTO events
+                (application_id, message_id, thread_id, kind, subject, sender,
+                 event_date, snippet, confidence, matched, review)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                application_id,
+                msg.message_id,
+                msg.thread_id,
+                cls.kind,
+                msg.subject,
+                msg.sender,
+                _to_iso(msg.date),
+                msg.snippet,
+                cls.confidence,
+                json.dumps(cls.matched),
+                json.dumps(cls.review) if cls.review else None,
+            ),
+        )
+
+    def _fill_application_role(
+        self, application_id: int, cls: Classification
+    ) -> None:
+        if not cls.role:
+            return
+        self.conn.execute(
+            "UPDATE applications SET role = ?, role_key = ? WHERE id = ? AND role_key = '' "
+            "AND NOT EXISTS (SELECT 1 FROM applications other WHERE other.company_key = applications.company_key AND other.role_key = ?)",
+            (
+                cls.role,
+                normalize_role(cls.role),
+                application_id,
+                normalize_role(cls.role),
+            ),
+        )
 
     def _purge_empty_applications(self) -> None:
         self.conn.execute(
@@ -722,6 +735,327 @@ class Store:
             row[0]
             for row in self.conn.execute("SELECT message_id FROM ignored_messages")
         }
+
+    def false_positive_message_ids(self) -> set[str]:
+        """Messages suppressed by a manual "not an application" decision."""
+        return {
+            row[0]
+            for row in self.conn.execute(
+                "SELECT message_id FROM ignored_messages WHERE analysis_key = ?",
+                (FALSE_POSITIVE_KEY,),
+            )
+        }
+
+    def is_false_positive_message(self, message_id: str) -> bool:
+        return (
+            self.conn.execute(
+                "SELECT 1 FROM ignored_messages WHERE message_id = ? AND analysis_key = ?",
+                (message_id, FALSE_POSITIVE_KEY),
+            ).fetchone()
+            is not None
+        )
+
+    def list_false_positive_marks(self) -> dict:
+        """Marks made from this build, plus older markers with no snapshot."""
+        marks = []
+        covered: set[str] = set()
+        for row in self.conn.execute(
+            "SELECT * FROM false_positive_marks ORDER BY created_at DESC, id DESC"
+        ):
+            message_ids = json.loads(row["message_ids"] or "[]")
+            covered.update(message_ids)
+            snapshot = json.loads(row["snapshot"] or "{}")
+            marks.append(
+                {
+                    "id": row["id"],
+                    "application_id": row["application_id"],
+                    "company": row["company"],
+                    "role": row["role"],
+                    "category": row["category"],
+                    "created_at": row["created_at"],
+                    "message_count": len(message_ids),
+                    "restorable": bool(snapshot.get("application")),
+                }
+            )
+        legacy = [
+            {"message_id": row[0]}
+            for row in self.conn.execute(
+                "SELECT message_id FROM ignored_messages WHERE analysis_key = ? "
+                "ORDER BY rowid DESC",
+                (FALSE_POSITIVE_KEY,),
+            )
+            if row[0] not in covered
+        ]
+        return {
+            "marks": marks,
+            "legacy": legacy,
+            "count": len(marks) + len(legacy),
+        }
+
+    def mark_false_positive(self, application_id: int) -> int | None:
+        """Remove an application, saving enough history to restore it later.
+
+        The email ids stay in ``ignored_messages`` so later syncs — including a
+        full recheck — never import them again.
+        """
+        with self.conn:
+            self.conn.execute("BEGIN IMMEDIATE")
+            row = self.conn.execute(
+                "SELECT * FROM applications WHERE id = ?", (application_id,)
+            ).fetchone()
+            if row is None:
+                return None
+            events = self.conn.execute(
+                "SELECT * FROM events WHERE application_id = ? "
+                "ORDER BY event_date ASC, id ASC",
+                (application_id,),
+            ).fetchall()
+            message_ids = [event["message_id"] for event in events]
+            # Merged messages point at the application outside the event table.
+            # Save them before the delete cascades, so a restore can reattach
+            # them to the recreated application.
+            merge_message_ids = [
+                merged["message_id"]
+                for merged in self.conn.execute(
+                    "SELECT message_id FROM application_merge_messages "
+                    "WHERE application_id = ? ORDER BY message_id",
+                    (application_id,),
+                )
+            ]
+            snapshot = {
+                "application": {
+                    "company": row["company"],
+                    "company_key": row["company_key"],
+                    "role": row["role"],
+                    "role_key": row["role_key"],
+                    "status": row["status"],
+                    "first_seen": row["first_seen"],
+                    "last_event_at": row["last_event_at"],
+                    "category": row["category"],
+                    "notes": row["notes"],
+                    "follow_up_on": row["follow_up_on"],
+                    "status_override": row["status_override"],
+                    "location": dict(row).get("location"),
+                },
+                "events": [
+                    {
+                        "message_id": event["message_id"],
+                        "thread_id": event["thread_id"],
+                        "kind": event["kind"],
+                        "subject": event["subject"],
+                        "sender": event["sender"],
+                        "event_date": event["event_date"],
+                        "snippet": event["snippet"],
+                        "confidence": event["confidence"],
+                        "matched": json.loads(event["matched"] or "[]"),
+                        "review": json.loads(event["review"])
+                        if event["review"]
+                        else None,
+                    }
+                    for event in events
+                ],
+                "merge_message_ids": merge_message_ids,
+            }
+            self.conn.execute(
+                "INSERT INTO false_positive_marks"
+                "(application_id, company, role, category, message_ids, snapshot, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    application_id,
+                    row["company"],
+                    row["role"],
+                    row["category"],
+                    json.dumps(message_ids),
+                    json.dumps(snapshot),
+                    _to_iso(datetime.now(timezone.utc)),
+                ),
+            )
+            for message_id in message_ids:
+                self.conn.execute(
+                    "INSERT OR IGNORE INTO ignored_messages(message_id, analysis_key) "
+                    "VALUES (?, ?)",
+                    (message_id, FALSE_POSITIVE_KEY),
+                )
+                self.conn.execute(
+                    "DELETE FROM message_reviews WHERE message_id = ?", (message_id,)
+                )
+            self.conn.execute(
+                "DELETE FROM applications WHERE id = ?", (application_id,)
+            )
+        return len(message_ids)
+
+    def restore_false_positive(self, mark_id: int) -> int | None:
+        """Recreate a marked application and its timeline, transactionally."""
+        with self.conn:
+            self.conn.execute("BEGIN IMMEDIATE")
+            row = self.conn.execute(
+                "SELECT * FROM false_positive_marks WHERE id = ?", (mark_id,)
+            ).fetchone()
+            if row is None:
+                return None
+            snapshot = json.loads(row["snapshot"] or "{}")
+            application = snapshot.get("application")
+            if not application:
+                raise ValueError("This mark has no saved application snapshot")
+            events = snapshot.get("events") or []
+            message_ids = json.loads(row["message_ids"] or "[]")
+            application_columns = {
+                column[1]
+                for column in self.conn.execute("PRAGMA table_info(applications)")
+            }
+            has_location = "location" in application_columns
+
+            company_key = application.get("company_key") or identity_key(
+                normalize_company(application.get("company") or "Unknown"),
+                application.get("category") or "employment",
+            )
+            role_key = application.get("role_key")
+            if role_key is None:
+                role_key = normalize_role(application.get("role"))
+            existing = self.conn.execute(
+                "SELECT id FROM applications WHERE company_key = ? AND role_key = ?",
+                (company_key, role_key),
+            ).fetchone()
+            if existing is not None:
+                application_id = int(existing["id"])
+                # An application that already exists may carry user edits made
+                # after the mark. Only fill blanks; never overwrite them.
+                fields = [
+                    "notes = CASE WHEN notes = '' THEN ? ELSE notes END",
+                    "follow_up_on = COALESCE(follow_up_on, ?)",
+                    "status_override = COALESCE(status_override, ?)",
+                ]
+                params = [
+                    application.get("notes") or "",
+                    application.get("follow_up_on"),
+                    application.get("status_override"),
+                ]
+                if has_location:
+                    fields.append(
+                        "location = COALESCE(NULLIF(location, ''), ?)"
+                    )
+                    params.append(application.get("location"))
+                params.append(application_id)
+                self.conn.execute(
+                    f"UPDATE applications SET {', '.join(fields)} WHERE id = ?",
+                    params,
+                )
+            else:
+                columns = [
+                    "company",
+                    "company_key",
+                    "role",
+                    "role_key",
+                    "status",
+                    "first_seen",
+                    "last_event_at",
+                    "category",
+                    "notes",
+                    "follow_up_on",
+                    "status_override",
+                ]
+                values = [
+                    application.get("company") or "Unknown",
+                    company_key,
+                    application.get("role"),
+                    role_key,
+                    application.get("status") or "applied",
+                    application.get("first_seen")
+                    or _to_iso(datetime.now(timezone.utc)),
+                    application.get("last_event_at")
+                    or _to_iso(datetime.now(timezone.utc)),
+                    application.get("category") or "employment",
+                    application.get("notes") or "",
+                    application.get("follow_up_on"),
+                    application.get("status_override"),
+                ]
+                if has_location:
+                    columns.append("location")
+                    values.append(application.get("location"))
+                cursor = self.conn.execute(
+                    f"INSERT INTO applications ({', '.join(columns)}) "
+                    f"VALUES ({', '.join('?' for _ in values)})",
+                    values,
+                )
+                application_id = int(cursor.lastrowid)
+
+            for event in events:
+                # The event's message id is unique. If it is already in the
+                # workspace (perhaps under another application), keep that row.
+                self.conn.execute(
+                    """
+                    INSERT OR IGNORE INTO events
+                        (application_id, message_id, thread_id, kind, subject,
+                         sender, event_date, snippet, confidence, matched, review)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        application_id,
+                        event.get("message_id"),
+                        event.get("thread_id"),
+                        event.get("kind") or "applied",
+                        event.get("subject") or "",
+                        event.get("sender") or "",
+                        event.get("event_date")
+                        or _to_iso(datetime.now(timezone.utc)),
+                        event.get("snippet") or "",
+                        event.get("confidence") or 0.0,
+                        json.dumps(event.get("matched") or []),
+                        json.dumps(event.get("review"))
+                        if event.get("review")
+                        else None,
+                    ),
+                )
+            # Reattach merge mappings captured before the mark. A message that
+            # was merged elsewhere while this application was gone keeps its
+            # newer mapping; the primary key makes this conflict-safe.
+            for merged_message_id in snapshot.get("merge_message_ids") or []:
+                self.conn.execute(
+                    "INSERT OR IGNORE INTO application_merge_messages"
+                    "(message_id, application_id) VALUES (?, ?)",
+                    (merged_message_id, application_id),
+                )
+            if message_ids:
+                marks = ",".join("?" for _ in message_ids)
+                self.conn.execute(
+                    f"DELETE FROM ignored_messages WHERE message_id IN ({marks}) "
+                    "AND analysis_key = ?",
+                    [*message_ids, FALSE_POSITIVE_KEY],
+                )
+            self.conn.execute(
+                "DELETE FROM false_positive_marks WHERE id = ?", (mark_id,)
+            )
+            self._refresh_application(application_id)
+        return application_id
+
+    def restore_legacy_false_positive(
+        self, msg: EmailMessage, cls: Classification
+    ) -> int | None:
+        """Recover one pre-snapshot mark from its Gmail message.
+
+        The old image did not save application or event details, so this only
+        records what the message itself proves. The marker is cleared only
+        after the event is stored, in the same transaction.
+        """
+        if cls.kind not in STATUS_RANK:
+            raise ValueError("Unknown event kind")
+        with self.conn:
+            self.conn.execute("BEGIN IMMEDIATE")
+            if not self.is_false_positive_message(msg.message_id):
+                return None
+            application_id = self._event_application(msg.message_id)
+            if application_id is None:
+                application_id = self._find_application(msg, cls)
+                if application_id is None:
+                    application_id = self._create_application(msg, cls)
+                self._insert_event(application_id, msg, cls)
+                self._fill_application_role(application_id, cls)
+                self._refresh_application(application_id)
+            self.conn.execute(
+                "DELETE FROM ignored_messages WHERE message_id = ? AND analysis_key = ?",
+                (msg.message_id, FALSE_POSITIVE_KEY),
+            )
+        return application_id
 
     def ignore_message(self, message_id: str, analysis_key: str) -> None:
         with self.conn:

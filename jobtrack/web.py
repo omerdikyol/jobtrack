@@ -23,13 +23,14 @@ from fastapi.staticfiles import StaticFiles
 
 from jobtrack import settings
 from jobtrack.analyze import MODES, build_analyzer
-from jobtrack.auth import get_credentials
+from jobtrack.auth import AuthError, get_credentials
 from jobtrack.config import (
     DB_PATH,
     TOKEN_PATH,
     WEB_HOST,
     WEB_PORT,
     ensure_data_dir,
+    resolve_credentials,
 )
 from jobtrack.contracts import ApplicationUpdate, SettingsUpdate, SyncRequest
 from jobtrack.gmail_client import GmailClient
@@ -359,6 +360,114 @@ def create_app(
             ) from exc
         if application is None:
             raise HTTPException(status_code=404, detail="No such application")
+        return {"application": _serialize_application(application)}
+
+    @app.delete("/api/applications/{app_id}/false-positive")
+    def mark_false_positive(app_id: int):
+        with runner._lock:
+            if runner._state.get("status") == "running":
+                raise HTTPException(
+                    status_code=409,
+                    detail="Stop the running sync before changing an application.",
+                )
+            with Store(db) as store:
+                ignored = store.mark_false_positive(app_id)
+        if ignored is None:
+            raise HTTPException(status_code=404, detail="No such application")
+        return {"ok": True, "ignored_messages": ignored}
+
+    @app.get("/api/false-positives")
+    def false_positives():
+        with Store(db) as store:
+            return store.list_false_positive_marks()
+
+    @app.post("/api/false-positives/{mark_id}/restore")
+    def restore_false_positive_mark(mark_id: int):
+        with runner._lock:
+            if runner._state.get("status") == "running":
+                raise HTTPException(
+                    status_code=409,
+                    detail="Stop the running sync before restoring an application.",
+                )
+            try:
+                with Store(db) as store:
+                    application_id = store.restore_false_positive(mark_id)
+                    application = (
+                        store.get_application(application_id)
+                        if application_id is not None
+                        else None
+                    )
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
+        if application is None:
+            raise HTTPException(status_code=404, detail="No such mark")
+        return {"application": _serialize_application(application)}
+
+    @app.post("/api/false-positives/legacy/{message_id}/restore")
+    def restore_legacy_false_positive(message_id: str):
+        """Recover one pre-snapshot mark by fetching only that Gmail message."""
+        with runner._lock:
+            if runner._state.get("status") == "running":
+                raise HTTPException(
+                    status_code=409,
+                    detail="Stop the running sync before restoring an application.",
+                )
+            with Store(db) as store:
+                if not store.is_false_positive_message(message_id):
+                    raise HTTPException(status_code=404, detail="No such legacy mark")
+            try:
+                credentials_path = resolve_credentials(runner.credentials)
+                creds = runner.credentials_loader(
+                    credentials_path=credentials_path,
+                    token_path=TOKEN_PATH,
+                    interactive=False,
+                )
+                client = runner.client_factory(creds)
+                message = client.get_message(message_id)
+            except AuthError as exc:
+                raise HTTPException(
+                    status_code=401,
+                    detail=f"Gmail authorization failed. The mark was left intact. {exc}",
+                ) from exc
+            except Exception as exc:
+                raise HTTPException(
+                    status_code=502,
+                    detail=(
+                        "Could not read this message from Gmail. The mark was left "
+                        f"intact. {type(exc).__name__}: {exc}"
+                    ),
+                ) from exc
+            try:
+                analyzer = runner.analyzer_factory(mode=runner.llm_mode)
+                result, _source = analyzer.analyze(message)
+            except Exception as exc:
+                raise HTTPException(
+                    status_code=502,
+                    detail=(
+                        "Could not classify this message. The mark was left intact. "
+                        f"{type(exc).__name__}: {exc}"
+                    ),
+                ) from exc
+            if result is None:
+                reason = analyzer.disabled_reason or (
+                    "the rules did not recognize an application event in it"
+                )
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        "This message could not be restored, so its mark was left "
+                        f"intact: {reason}."
+                    ),
+                )
+            with Store(db) as store:
+                application_id = store.restore_legacy_false_positive(message, result)
+                application = (
+                    store.get_application(application_id)
+                    if application_id is not None
+                    else None
+                )
+        if application is None:
+            raise HTTPException(status_code=404, detail="No such legacy mark")
         return {"application": _serialize_application(application)}
 
     @app.get("/api/overview")
