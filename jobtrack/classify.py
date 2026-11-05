@@ -53,7 +53,7 @@ SIGNALS: dict[str, list[tuple[str, int, str]]] = {
             "cannot proceed together (Turkish)",
         ),
         (
-            r"(?:bir\s+)?(?:farklı|başka|diğer|daha\s+uygun)\s+(?:bir\s+)?aday\w*[^.]{0,80}?(?:devam\s+etm\w*|ilerlem\w*)[^.]{0,80}?karar\w*",
+            r"(?:bir\s+)?(?:farklı|başka|diğer|daha\s+uygun)\s+(?:bir\s+)?(?:aday|profil)\w*[^.]{0,80}?(?:devam\s+etm\w*|ilerle(?:m|me)\w*)[^.]{0,80}?karar\w*",
             10,
             "proceeding with another candidate (Turkish)",
         ),
@@ -94,9 +94,25 @@ SIGNALS: dict[str, list[tuple[str, int, str]]] = {
             "role filled",
         ),
         (
-            r"\b(?:won't|will not|would not|are not|aren't) be (?:moving|going) (?:forward|ahead)\b",
+            r"\b(?:won't|will not|would not|are not|aren't) be (?:moving|going|taking) (?:it |this |your application )?(?:forward|ahead|further)\b",
             8,
             "won't be moving forward",
+        ),
+        (
+            r"\b(?:made the|a) decision not to (?:move forward|proceed|progress|take your application further|continue)\b"
+            r"|\bdecision (?:has been|was) made not to (?:move|continue|proceed|progress)\b",
+            8,
+            "decision not to move forward",
+        ),
+        (
+            r"\b(?:take|taking|move|moving) (?:other|another|different) (?:candidates?|applicants?) (?:forward|ahead)\b",
+            8,
+            "taking other candidates forward",
+        ),
+        (
+            r"\b(?:were|was|are) not able to match your profile\b|\b(?:weren't|wasn't|aren't) able to match your profile\b",
+            8,
+            "could not match your profile",
         ),
         (
             r"\b(?:have|has) not been (?:selected|successful|shortlisted)\b|\bwere not successful\b",
@@ -269,7 +285,9 @@ SIGNALS: dict[str, list[tuple[str, int, str]]] = {
             r"\bbaşvuru\w*\s+(?:bize\s+)?(?:aldık|alındı|alınmıştır|aldı|ulaştı|tamamlandı|iletildi)\w*"
             r"|\bbaşvurduğun(?:uz)?\s+için\s+teşekkür\w*"
             r"|\byanıtların(?:ız)?\s+(?:başarılı\s+bir\s+şekilde\s+)?(?:tarafımıza\s+)?iletil\w*"
-            r"|\bbaşvuru\w*\s+(?:incele|değerlendir)\w*",
+            r"|\bbaşvuru\w*\s+(?:incele|değerlendir)\w*"
+            r"|\bbaşvuru\w*\s+elimize\s+ulaştı\w*"
+            r"|\bbaşvuru\w*\s+olumlu\s+değerlendirilmesi\s+durumunda",
             6,
             "application received (Turkish)",
         ),
@@ -296,8 +314,9 @@ SIGNALS: dict[str, list[tuple[str, int, str]]] = {
             "application received",
         ),
         (r"\bwe(?:'ve| have) received your appl\w+", 6, "we received your application"),
+        (r"\bthank(?:s| you) for completing your application\b", 6, "application completed"),
         (
-            r"\breceived your (?:application|resume|cv)\b",
+            r"\breceived your (?:job )?(?:application|resume|cv)\b",
             5,
             "received your application",
         ),
@@ -346,6 +365,7 @@ SIGNALS: dict[str, list[tuple[str, int, str]]] = {
         (r"\bjoin (?:our|the) team\b", 3, "join our team"),
         (r"\bare you (?:looking|open)\b", 3, "are you looking"),
         (r"\b(?:global )?recruitment (?:firm|agency)\b", 4, "recruitment firm"),
+        (r"\b(?:would like to|want to|wanted to) refer you\b", 5, "would like to refer you"),
         (
             r"\bprofilin(?:izi|i)\s+(?:inceledik|gördük|beğendik)\b|\bsizi\s+(?:bir\s+)?pozisyon\w*\s+için\b",
             5,
@@ -476,6 +496,8 @@ ATS_DOMAINS = {
     "paycom.com",
     "jobylon.com",
     "manatal.com",
+    "wonderlic.com",
+    "testgorilla.com",
 }
 
 # Display names that belong to the platform, not the employer. ATS senders often
@@ -532,6 +554,9 @@ PLATFORM_NAMES = {
     "ultipro",
     "paycom",
     "icims inc",
+    "wonderlic",
+    "testgorilla",
+    "testgorilla assessments",
 }
 
 FREEMAIL_DOMAINS = {
@@ -593,6 +618,15 @@ COMPANY_STOPWORDS = {
     "that",
     "review",
     "candidates",
+    "noreply",
+    "no-reply",
+    "no reply",
+    "donotreply",
+    "do not reply",
+    "süreç bilgilendirme",
+    "bilgilendirme",
+    "başvurunuz hakkında",
+    "başvurun hakkında",
 }
 
 # Subdomains that say nothing about the company.
@@ -676,7 +710,11 @@ _SUBJECT_COMPANY = [
         r"\b(?i:opportunity|role|position|opening|vacancy|job) (?i:at|with) ([A-Z][\w&.'’\-]*(?:\s+[\w&.'’\-]+){0,4}?)(?:[.!?,;:!]|\s*[-–|]|$)",
         r"\b(?i:your) ([A-Z][\w&.'’\-]*(?:\s+[\w&.'’\-]+){0,3}?) (?i:application)\b",
         r"\b(?i:your) ([A-Z][\w&.'’\-]*(?:\s+[\w&.'’\-]+){0,3}?) (?i:journey)\b",
-        r"^([A-Z][\w&.'’\-]*(?:\s+[\w&.'’\-]+){0,4}?)\s+(?:(?i:is)\s+)?(?i:hiring|recruiting|careers)",
+        r"^([A-Z][\w&.'’\-]*(?:\s+[\w&.'’\-]+){0,4}?)\s+(?:(?i:is)\s+)?(?i:hiring|recruiting|recruitment|careers)",
+        # Coding-test platforms: "BCG X invited you to take ...",
+        # "Reminder: BCG X is waiting for your ...", "Request from BCG X has expired."
+        r"^(?:(?i:reminder):\s*)?([A-Z][\w&.'’\-]*(?:\s+[\w&.'’\-]+){0,3}?)\s+(?:invited you|is waiting for your)\b",
+        r"\b(?i:request from) ([A-Z][\w&.'’\-]*(?:\s+[\w&.'’\-]+){0,3}?) (?i:has expired)\b",
     )
 ]
 
@@ -700,7 +738,8 @@ _GENERIC_NAME_SUFFIX = re.compile(
     r"\s+(?:hiring\s+team|recruitment\s+team|recruiting\s+team|recruitment|recruiting|"
     r"talent\s+acquisition(?:\s+team)?|talent\s+team|people\s+team|talent|careers?|hiring|"
     r"no[\s-]*reply|do\s*not\s*reply|global\s+support|support|"
-    r"job\s+board|jobs|notifications?|team|mail)\s*$",
+    r"job\s+board|jobs|notifications?|team|mail|"
+    r"işe\s+alım(?:\s+ve\s+işveren\s+markası)?|insan\s+kaynakları|kariyer)[\s\-–|!.]*$",
     re.I,
 )
 
@@ -744,7 +783,10 @@ def _company_candidate(value: str) -> str | None:
         cleaned = cleaned + "."
     # "your application to join Trellis" -> "Trellis"
     cleaned = re.sub(
-        r"^(?:join|at|the company|company)\s+", "", cleaned, flags=re.I
+        r"^(?:join|at|the company|company|(?:careers|jobs|recruiting|talent)\s+at)\s+",
+        "",
+        cleaned,
+        flags=re.I,
     ).strip()
     if not cleaned or cleaned.lower() in PLATFORM_NAMES:
         return None
@@ -757,8 +799,11 @@ def is_plausible_company(value: str) -> bool:
     if not value:
         return False
     cleaned = _clean(value)
-    lowered = cleaned.lower()
+    lowered = cleaned.lower().rstrip("!?")
     if len(cleaned) < 2 or len(cleaned) > 60:
+        return False
+    # Pay and work-mode segments of a subject: "$120/hr Remote".
+    if re.search(r"[$€£]|/\s*(?:hr|hour)\b", cleaned, re.I):
         return False
     if lowered in COMPANY_STOPWORDS:
         return False
@@ -791,6 +836,9 @@ def is_plausible_company(value: str) -> bool:
             "data",
             "research",
             "design",
+            "yazılım",
+            "teknoloji",
+            "bilişim",
         }
         named_company = len(words) > 1 and any(
             not ROLE_KEYWORDS.fullmatch(w) for w in words[:-1]
@@ -864,6 +912,33 @@ def _company_from_label(root: str) -> str | None:
     return base.replace("-", " ").title()
 
 
+# Testing and interview platforms send on an employer's behalf, so their name
+# and domain are never the employer. The employer is in the text instead.
+ASSESSMENT_PLATFORM_DOMAINS = {
+    "wonderlic.com", "testgorilla.com", "codesignal.com", "hackerrank.com",
+    "codility.com", "hackerearth.com", "coderbyte.com", "imocha.io", "hirevue.com",
+    "alooba.com", "devskiller.com", "testdome.com", "coderpad.io", "karat.com",
+    "mettl.com", "shl.com", "criteriacorp.com", "harver.com", "canditech.io",
+    "qualified.io", "adaface.com", "vervoe.com", "glider.ai", "bryq.com",
+}
+ATS_DOMAINS |= ASSESSMENT_PLATFORM_DOMAINS
+PLATFORM_NAMES |= {
+    "coderbyte", "imocha", "alooba", "devskiller", "testdome", "coderpad", "karat",
+    "mettl", "mercer mettl", "shl", "criteria", "criteria corp", "harver", "canditech",
+    "qualified", "adaface", "vervoe", "glider", "glider ai", "bryq", "hackerearth",
+}
+
+
+def is_assessment_platform(msg: EmailMessage) -> bool:
+    return _root_domain(_domain_of(msg.sender_email)) in ASSESSMENT_PLATFORM_DOMAINS
+_COMPANY_NAME = r"([A-Z][\w&'’\-]*(?:\.[A-Z][\w&'’\-]*)*(?:\s+(?:Inc|Ltd|LLC|GmbH|[A-Z][\w&'’\-]*)\.?){0,3})"
+_ASSESSMENT_EMPLOYER = [
+    re.compile(r"\bassessment for .{2,80}? at " + _COMPANY_NAME + r"\s*[!.]?(?:\s|$)"),
+    re.compile(r"\bassessment to complete for " + _COMPANY_NAME),
+    re.compile(r"^" + _COMPANY_NAME + r":?\s+(?:is inviting you|Please Complete)", re.M),
+]
+
+
 def extract_company(msg: EmailMessage) -> str | None:
     subject = msg.subject or ""
     name = msg.sender_name or ""
@@ -890,6 +965,18 @@ def extract_company(msg: EmailMessage) -> str | None:
                 candidate = _company_candidate(match.group(1))
                 if candidate:
                     return candidate
+
+    # Assessment platforms (Wonderlic, TestGorilla) write on an employer's
+    # behalf and name it in the text: "an assessment for X at Sezzle Inc.",
+    # "Sezzle Inc. is inviting you", "an assessment to complete for PIWorks".
+    if _root_domain(_domain_of(msg.sender_email)) in ASSESSMENT_PLATFORM_DOMAINS:
+        for text in (subject, msg.body[:3000]):
+            for pattern in _ASSESSMENT_EMPLOYER:
+                match = pattern.search(text)
+                if match:
+                    candidate = _company_candidate(match.group(1))
+                    if candidate:
+                        return candidate
 
     # 1. The subject is the most reliable place, and its proper nouns are
     #    capitalised, so these patterns stay case-sensitive on the capture.
@@ -962,13 +1049,10 @@ def _company_from_segments(subject: str) -> str | None:
     """Handle the separator layouts, e.g.
     'Application Received - Software Engineer - Acme Corp' and
     'Nordvale - Thank you for your application'."""
-    for separator in (" - ", " – ", " | ", " — "):
-        if separator not in subject:
-            continue
-        segments = [s.strip() for s in subject.split(separator) if s.strip()]
-        if len(segments) < 2:
-            continue
-
+    # Split on every separator at once: "Sezzle | ACTION REQUIRED - Wonderlic
+    # Assessment" is three segments, not "Sezzle | ACTION REQUIRED" and the rest.
+    segments = [s.strip() for s in re.split(r"\s+[-–|—]\s+", subject) if s.strip()]
+    if len(segments) >= 2:
         # A leading short proper noun followed by a sentence is the employer.
         head = segments[0]
         if (
@@ -997,8 +1081,14 @@ def _role_candidate(value: str) -> str | None:
     prefix = re.compile(
         r"^(?:(?:the|our|a|an)\s+|(?:position|role|job)\s*(?:of|as|:)?\s+|"
         r"(?:your\s+)?interest\s+in\s+|(?:thank(?: you|s)?\s+)?for\s+|"
-        r"feedback\s+on\s+your\s+|in\s+our\s+)",
+        r"feedback\s+on\s+your\s+|in\s+our\s+|next\s+steps?\s+for\s+)",
         re.I,
+    )
+    # Turkish openings: "Merhaba Ömer Dikyol Getmobil bünyesindeki X".
+    text = re.sub(r"^.*?\b(?:bünyesindeki|alanında)\s+", "", text, flags=re.I)
+    # "You've completed an assessment for Software Engineer II at Sezzle".
+    text = re.sub(
+        r"^.*?\b(?:assess?ment|test|challenge)\s+for\s+(?:the\s+)?", "", text, flags=re.I
     )
     for _ in range(6):
         cleaned = prefix.sub("", text).strip(" \t\"'‘’“”")
@@ -1012,10 +1102,22 @@ def _role_candidate(value: str) -> str | None:
         text,
         flags=re.I,
     )
+    # Sentence tails that follow a title: "X, which you applied to, has just
+    # been filled", "X with us", "X shortly, and get back to you".
+    text = re.sub(
+        r"\s*,\s*(?:which|and|but|so|türkiye|turkey)\b.*$|\s+(?:with us|shortly|carefully|as soon as)\b.*$"
+        r"|\s+ilan\w*\s+için\b.*$",
+        "",
+        text,
+        flags=re.I,
+    )
     text = re.sub(
         r"\s+(?:application|role|position|job|opening)$", "", text, flags=re.I
     )
     text = text.strip(" \t\"'‘’“”.,!?;:")
+    # LinkedIn's "your application was noticed" sentence is not a title.
+    if re.search(r"şirketindeki|tarafından|fark edilerek", text, re.I):
+        return None
     if not text or len(text) > 120 or not ROLE_KEYWORDS.search(text):
         return None
     if re.search(
@@ -1034,8 +1136,13 @@ _ROLE_PATTERNS = [
         r"\b(?:appl\w+|interview\w*|candidac\w+)\s+(?:for|to)\s*:?\s*(.{2,140}?)(?:\s+(?:role|position|opening)\b|\s+at\b|[!?]|\.(?=\s|$)|$)",
         r"\b(?:position|role)\s+(?:of|as)\s+(.{2,140}?)(?:\s+at\b|[!?]|\.(?=\s|$)|$)",
         r"\b(?:for|regarding|about)\s+the\s+(.{2,140}?)\s+(?:role|position|opening|opportunity)\b",
-        r"\b(?:the|our)\s+(.{2,140}?)\s+(?:role|position|opening)\b",
+        r"\b(?:the|our)\s+([^.!?\n]{2,140}?)\s+(?:role|position|opening)\b",
+        r"\bappl\w+\s*:\s*(.{2,140}?)$",
+        # A subject that is only "<title> at <Employer>".
+        r"\A(.{2,100}?)\s+at\s+[A-Z]",
         r"\bfeedback on your\s+(.{2,140}?)\s+application\b",
+        # "... ederiz. Backend Developer (Full Stack) - Hybrid pozisyonuna ..."
+        r"(?:^|[.!?,:]\s+)([^.!?,:\n]{2,100}?)\s+pozisyon(?:u|un|una|undaki|unda|unuza)\b",
     )
 ]
 
@@ -1084,6 +1191,11 @@ def extract_role(msg: EmailMessage) -> str | None:
 
     def title(value: str) -> str | None:
         candidate = _role_candidate(value)
+        # "Yapı Kredi Teknoloji - Software Engineer": drop the employer prefix.
+        if candidate and employer and " - " in candidate:
+            head, rest = candidate.split(" - ", 1)
+            if fold(head).casefold().startswith(fold(employer).casefold()):
+                candidate = _role_candidate(rest)
         return (
             candidate
             if candidate and candidate.casefold() != (employer or "").casefold()
@@ -1192,11 +1304,11 @@ def extract_role(msg: EmailMessage) -> str | None:
                 if candidate:
                     return candidate
         if raw == (msg.subject or ""):
-            for separator in (" - ", " – ", " | ", " — "):
-                for segment in text.split(separator) if separator in text else []:
-                    candidate = title(segment)
-                    if candidate and not _FLOW_WORDS.search(candidate):
-                        return candidate
+            segments = re.split(r"\s+[-–|—]\s+", text)
+            for segment in segments if len(segments) > 1 else []:
+                candidate = title(segment)
+                if candidate and not _FLOW_WORDS.search(candidate):
+                    return candidate
     return None
 
 
