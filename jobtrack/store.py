@@ -96,6 +96,7 @@ def _fold_name(text: str | None) -> str:
 
 
 FOLLOW_UP_KINDS = ("rejected", "assessment", "interview", "offer")
+JUST_ACTIVE_SECONDS = 30 * 60
 
 
 def _mail_text(msg: EmailMessage) -> str:
@@ -227,6 +228,9 @@ class Store:
         Threading wins, then an exact company+role match, then a company-wide
         match. Anything else starts a new application.
         """
+        just_active = self._just_active_application(msg, cls)
+        if just_active is not None:
+            return just_active
         if msg.thread_id:
             rows = self.conn.execute(
                 "SELECT DISTINCT a.id, a.role_key, a.role, a.company FROM events e JOIN applications a ON a.id=e.application_id WHERE e.thread_id = ?",
@@ -349,6 +353,44 @@ class Store:
                 if len(same_sender) == 1:
                     return int(same_sender.pop())
         return None
+
+    def _just_active_application(self, msg: EmailMessage, cls: Classification) -> int | None:
+        """An untitled step of a flow the user is in the middle of.
+
+        Applying to two roles minutes apart produces identical untitled mail
+        ("Başvurun Tamamlandı"), which Gmail threads together by subject. Each
+        belongs to the application that was active moments before it.
+        ponytail: 30-minute window, latest activity wins; mail from two flows
+        interleaved inside one window would be misplaced.
+        """
+        if (
+            cls.kind == "outreach"
+            or normalize_role(cls.role)
+            or not cls.company
+            or cls.company == "Unknown"
+        ):
+            return None
+        wanted = normalize_company(_fold_name(cls.company))
+        category = infer_category(msg.sender, msg.subject, msg.snippet)
+        rows = [
+            r
+            for r in self.conn.execute(
+                "SELECT id, company, last_event_at FROM applications WHERE category = ?",
+                (category,),
+            )
+            if _word_prefix(normalize_company(_fold_name(r["company"])), wanted)
+        ]
+        if len(rows) < 2:
+            return None
+        recent = [
+            r
+            for r in rows
+            if 0 <= (msg.date - _from_iso(r["last_event_at"])).total_seconds() <= JUST_ACTIVE_SECONDS
+        ]
+        recent.sort(key=lambda r: r["last_event_at"], reverse=True)
+        if not recent or (len(recent) > 1 and recent[0]["last_event_at"] == recent[1]["last_event_at"]):
+            return None
+        return int(recent[0]["id"])
 
     def _company_from_text(self, msg: EmailMessage, cls: Classification) -> Classification:
         """Name the employer from the mail's text when the sender cannot.

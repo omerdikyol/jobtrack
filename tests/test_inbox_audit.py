@@ -163,3 +163,25 @@ def test_a_different_job_at_the_only_open_application_stays_separate(tmp_path):
         app = record(store, "p1", "P.I. Works", "Part-Time SW Product Design Engineer")
         assert record(store, "p2", "P.I. Works", "Product Design Intern (Telecom Software)",
                       "assessment") != app
+
+
+def test_untitled_step_joins_the_application_active_moments_before(tmp_path):
+    from datetime import datetime, timedelta, timezone
+
+    start = datetime(2026, 10, 27, 10, 40, tzinfo=timezone.utc)
+
+    def step(store, message_id, role, kind, minutes, thread):
+        return store.record(
+            make_message("Başvuru", message_id=message_id, thread_id=thread,
+                         date=start + timedelta(minutes=minutes)),
+            Classification(kind=kind, score=12, company="Pegasus", role=role),
+        )[1]
+
+    with Store(tmp_path / "t.db") as store:
+        web = step(store, "w1", "Web Developer", "incomplete", 0, "form")
+        assert step(store, "w2", None, "applied", 5, "done") == web
+        backend = step(store, "b1", "Backend Developer", "incomplete", 10, "form")
+        # Same Gmail thread as Web's "done" mail, but Backend was just active.
+        assert step(store, "b2", None, "applied", 10.1, "done") == backend
+        # Hours later nothing is "just active": an untitled mail is not guessed.
+        assert step(store, "x", None, "applied", 300, "other") not in (web, backend)
