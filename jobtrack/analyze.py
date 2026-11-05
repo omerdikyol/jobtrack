@@ -84,8 +84,8 @@ class Analyzer:
         # Record the rules, prompt, and model revision for analysis provenance.
         # Previously processed messages are revisited only with an explicit full sync.
         if not self.llm_active:
-            return "rules-v7"
-        return f"rules-v7:prompt-v6:{self.mode}:{self.confidence_floor}:{self.llm.provider}:{self.llm.model}:{self.llm.max_chars}"
+            return "rules-v8"
+        return f"rules-v8:prompt-v7:{self.mode}:{self.confidence_floor}:{self.llm.provider}:{self.llm.model}:{self.llm.max_chars}"
 
     def analyze(self, msg: EmailMessage) -> tuple[Classification | None, str]:
         """Return ``(classification, source)`` where source is rules or llm."""

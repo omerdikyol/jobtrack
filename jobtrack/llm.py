@@ -12,6 +12,7 @@ the database.
 
 from __future__ import annotations
 
+import http.client
 import json
 import ssl
 import time
@@ -146,6 +147,24 @@ manager. Follow your application progress in your account.' => applied
 'Please complete the coding assessment before Friday.' => assessment
 'We enjoyed meeting you but have chosen another applicant.' => rejected
 
+Emails may be Turkish or English. Turkish equivalents:
+'başvuruna şu an olumlu dönüş yapamıyoruz', 'başka bir adayla ilerlemeye karar verdik',
+'maalesef ... devam edemeyeceğiz' => rejected
+'Başvuru Tamamlama', 'başvurunu tamamlamak için' => incomplete
+'başvurunu aldık', 'Başvurun Tamamlandı', 'Yanıtların İletildi', 'başvurunuz değerlendirme
+sürecinde' => applied
+'değerlendirme testi', 'online test', 'vaka çalışması' invitation => assessment
+'mülakata davet', 'görüşme planlamak istiyoruz' => interview
+'iş teklifi', 'teklif mektubu' => offer
+A rejection that also thanks the reader for applying is rejected, not applied. A
+sentence starting with "if" ("If you are not selected...") is not a decision.
+Job alerts and recommendations ('Sana uygun ilanlar', 'işe alıyor', 'İlgilenebileceğiniz',
+'Sizin için seçilen iş ilanları', 'new jobs posted'), verification or one-time codes,
+and data-retention or talent-pool consent requests are NOT job_related. Neither are
+patent or paper filings ("Application filed"), courses, community or volunteer calls,
+or candidate-experience surveys. A recruiter or agency inviting someone who has NOT
+applied to interview for a role is outreach, not interview.
+
 For newsletters, general job alerts, marketing, receipts or invoices return:
 {"job_related": false, "event": null, "company": null, "role": null, "confidence": 0.9}
 Keep the boolean and event consistent: any non-null event requires job_related=true.
@@ -195,6 +214,10 @@ PROVIDER_DEFAULTS: dict[str, tuple[str, str, str | None]] = {
         "gemini-3.1-flash-lite",
         "GEMINI_API_KEY",
     ),
+    # A llama.cpp `llama-server` (or any keyless OpenAI-compatible server) on
+    # your own hardware; the mail never leaves your network.
+    "llamacpp": ("http://localhost:8080/v1", "local", None),
+    "opencode": ("https://opencode.ai/zen/v1", "big-pickle", "OPENCODE_API_KEY"),
 }
 
 # Everything here speaks the OpenAI-compatible /chat/completions API, which also
@@ -208,6 +231,8 @@ OPENAI_COMPATIBLE = {
     "openrouter",
     "openai-compatible",
     "local",
+    "llamacpp",
+    "opencode",
 }
 
 
@@ -377,6 +402,12 @@ def _send(
             raise LLMError(
                 f"{config.provider} gave an unusable response: {exc}"
             ) from exc
+        except (http.client.HTTPException, ConnectionError) as exc:
+            # A server that restarts mid-request drops the socket; that is a
+            # provider failure, not a reason to abort the whole sync.
+            raise LLMError(
+                f"{config.provider} dropped the connection: {exc!r}"
+            ) from exc
     raise LLMError(f"{config.provider}: gave up after {attempts} attempts")
 
 
@@ -421,6 +452,9 @@ class OllamaLLM(_BaseLLM):
             "stream": False,
             # Ollama constrains sampling to valid JSON when this is set.
             "format": "json",
+            # Reasoning models (qwen3, deepseek-r1) otherwise spend most of the
+            # call thinking; a short JSON label does not need it.
+            "think": False,
             "options": {"temperature": 0},
         }
         body = _send(f"{self.config.base_url}/api/chat", payload, self.config)
@@ -509,23 +543,33 @@ class OpenAICompatLLM(_BaseLLM):
             raise LLMError(f"{self.config.provider} returned no choices")
         return (choices[0].get("message") or {}).get("content", "")
 
+    @property
+    def _keyless(self) -> bool:
+        """Self-hosted servers (llama.cpp, LM Studio) usually take no key."""
+        default = PROVIDER_DEFAULTS.get(self.config.provider)
+        return self.config.is_local or (default is not None and default[2] is None)
+
     def check(self) -> tuple[bool, str]:
-        if not self.config.api_key:
+        if not self.config.api_key and not self._keyless:
             return False, (
                 f"No API key for {self.config.provider}. Export "
                 f"{PROVIDER_DEFAULTS.get(self.config.provider, ('', '', 'JOBTRACK_LLM_API_KEY'))[2]}."
             )
+        if self._keyless and not self.available_models():
+            return False, f"Cannot reach {self.config.provider} at {self.config.base_url}."
         return True, f"{self.config.provider} ready — using {self.config.model}"
 
     def available_models(self) -> list[str]:
-        if not self.config.api_key:
+        if not self.config.api_key and not self._keyless:
             return []
+        headers = (
+            {"Authorization": f"Bearer {self.config.api_key}"}
+            if self.config.api_key
+            else {}
+        )
         try:
             body = _request_json(
-                f"{self.config.base_url}/models",
-                None,
-                20,
-                {"Authorization": f"Bearer {self.config.api_key}"},
+                f"{self.config.base_url}/models", None, 20, headers
             )
         except Exception:
             return []
@@ -765,8 +809,8 @@ def classify_message(msg: EmailMessage, llm) -> Classification | None:
     return interpret(extract_json(raw))
 
 
-# A rejection the rule engine deliberately misses: "the role has now been filled
-# internally" matches no pattern, which is exactly the case the model is for.
+# A rejection the rule engine deliberately misses: "progress with another
+# applicant" matches no pattern, which is exactly the case the model is for.
 # Also used as the sample for `llm-check` and the settings page's test button.
 SAMPLE_EMAIL = EmailMessage(
     message_id="sample",
@@ -777,7 +821,7 @@ SAMPLE_EMAIL = EmailMessage(
     body=(
         "Hi Sam,\n\nThanks for the great chat last week — the team really enjoyed "
         "meeting you. After careful consideration we have decided to progress with "
-        "another applicant, and the role has now been filled internally.\n\n"
+        "another applicant for this one.\n\n"
         "Wishing you all the best.\n\nInitech Talent"
     ),
 )

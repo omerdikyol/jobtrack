@@ -485,3 +485,19 @@ def test_prompt_covers_incomplete_and_distinguishes_completed_steps():
 
     schema = SYSTEM_PROMPT.split("Use the actual application state")[0]
     assert all('"' + event + '"' in schema for event in VALID_EVENTS)
+
+
+def test_dropped_connection_is_an_llm_error(monkeypatch):
+    import http.client
+
+    import pytest
+
+    from jobtrack import llm as llm_module
+
+    def drop(*args, **kwargs):
+        raise http.client.RemoteDisconnected("Remote end closed connection")
+
+    monkeypatch.setattr(llm_module, "_request_json", drop)
+    config = llm_module.LLMConfig(provider="llamacpp", base_url="http://llm:8080/v1")
+    with pytest.raises(llm_module.LLMError, match="dropped the connection"):
+        llm_module._send("http://llm:8080/v1/chat/completions", {}, config)
