@@ -47,6 +47,21 @@ ATS_SENDERS = (
     "teamtailor.com",
     "eightfold.ai",
     "phenompeople.com",
+    # Mail-sending domains of the same platforms, and assessment vendors.
+    "icims.eu",
+    "workablemail.com",
+    "teamtailor-mail.com",
+    "greenhouse-mail.io",
+    "successfactors.eu",
+    "manatal.com",
+    "peoplise.com",
+    "hrpanda.co",
+    "uplico.com",
+    "kula.ai",
+    "ceipalmail.com",
+    "testgorilla.com",
+    "wonderlic.com",
+    "hackerearth.com",
 )
 
 SUBJECT_PHRASES = (
@@ -75,6 +90,42 @@ SUBJECT_PHRASES = (
     "other candidates",
     "recruiter",
     "your candidacy",
+    "assessment",
+    "recruitment",
+    "recruiting",
+    "candidate",
+    "başvuru",
+    "başvurun",
+    "başvurunu",
+    "başvurunuzu",
+    "değerlendirme",
+    "mülakat",
+    "görüşme",
+    "iş teklifi",
+    "işe alım",
+    "pozisyon",
+)
+
+# Phrases searched anywhere in the message. Employers often use a bland
+# subject ("Status for Software Engineer at X") and put the outcome only in
+# the body, in either language.
+BODY_PHRASES = (
+    "your application",
+    "thank you for applying",
+    "thanks for applying",
+    "time to apply",
+    "your candidacy",
+    "recruitment process",
+    "regret to inform",
+    "not been selected",
+    "assesment",
+    "başvurunuz",
+    "başvurunuzu",
+    "başvurun",
+    "başvuruna",
+    "başvurduğunuz",
+    "pozisyonuna",
+    "işe alım",
 )
 
 _TAG_RE = re.compile(r"<(script|style)\b.*?</\1>", re.I | re.S)
@@ -86,7 +137,8 @@ def default_query() -> str:
     """Build the Gmail search used when the caller does not supply one."""
     subject = " OR ".join(f'"{phrase}"' for phrase in SUBJECT_PHRASES)
     senders = " OR ".join(f"from:{domain}" for domain in ATS_SENDERS)
-    return f"(subject:({subject}) OR subject:(application) OR {senders})"
+    body = " OR ".join(f'"{phrase}"' for phrase in BODY_PHRASES)
+    return f"(subject:({subject}) OR subject:(application) OR {senders} OR {body})"
 
 
 # What the user's own applications look like in Subject lines. Deliberately
@@ -147,7 +199,11 @@ def _extract_body(payload: dict, prefer_html: bool = False) -> str:
         data = body.get("data")
         if data:
             if mime == "text/plain":
-                plain.append(_decode(data))
+                text = _decode(data)
+                # Some senders label a full HTML document as text/plain.
+                if re.match(r"\s*<(?:!doctype|html)\b", text, re.I):
+                    text = _strip_html(text)
+                plain.append(text)
             elif mime == "text/html":
                 rich.append(_strip_html(_decode(data)))
         for child in part.get("parts", []) or []:

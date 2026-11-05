@@ -13,7 +13,7 @@ REJECTED = make_message(
 # No rule matches this: the model is the only thing that can read it.
 UNUSUAL = make_message(
     "Following up on our conversation",
-    "Thanks for the chat. The role has now been filled internally.",
+    "Thanks for the chat. We will not be taking things further.",
 )
 NOISE = make_message("Your order has shipped", "Tracking number inside.")
 
@@ -212,8 +212,8 @@ def test_fallback_escalates_mail_the_rules_cannot_judge():
 
 
 def test_fallback_escalates_when_rules_are_only_weakly_confident():
-    # "position has been filled" does match a rule, but scores only 0.33.
-    message = make_message("Re: our chat", "The position has been filled internally.")
+    # "we regret" does match a rule, but scores only 0.33.
+    message = make_message("Re: our chat", "We regret that the team went another way.")
     llm = FakeLLM([reply(event="rejected", company="Initech", confidence=0.95)])
     analyzer = Analyzer(llm, mode="fallback")
 

@@ -67,6 +67,50 @@ SIGNALS: dict[str, list[tuple[str, int, str]]] = {
             10,
             "cannot advance to next stage (Turkish)",
         ),
+        (
+            r"\bolumlu\s+(?:bir\s+)?(?:dönüş|geri\s+dönüş)\s+(?:yapam|sağlayam|veremi?y)\w*",
+            10,
+            "cannot respond positively (Turkish)",
+        ),
+        (r"\bmaalesef\b", 3, "unfortunately (Turkish)"),
+        (
+            r"\b(?:başka|diğer|farklı)\s+aday(?:lar)?\w*\s+(?:ile|la|le)\b",
+            4,
+            "other candidates (Turkish)",
+        ),
+        (
+            r"\b(?:uygun\s+(?:bulunmad|görülmed)|değerlendirmeye\s+alınmad)\w*",
+            6,
+            "not found suitable (Turkish)",
+        ),
+        (
+            r"\b(?:decided|chosen|elected|opted) (?:not to (?:progress|go ahead|continue|pursue|move forward|proceed)|to (?:move forward|proceed|go|continue) with (?:another|other|a different|different))\b",
+            8,
+            "decided to go with someone else",
+        ),
+        (
+            r"\b(?:role|position|job|vacancy|opening)[^.]{0,90}? has (?:now |just |already )?been (?:filled|closed)\b",
+            8,
+            "role filled",
+        ),
+        (
+            r"\b(?:won't|will not|would not|are not|aren't) be (?:moving|going) (?:forward|ahead)\b",
+            8,
+            "won't be moving forward",
+        ),
+        (
+            r"\b(?:have|has) not been (?:selected|successful|shortlisted)\b|\bwere not successful\b",
+            8,
+            "not selected",
+        ),
+        (r"\bcouldn'?t find a (?:fit|match)\b", 5, "couldn't find a fit"),
+        (r"\bnot a (?:match|fit) for (?:this|the) (?:role|position)\b", 6, "not a match for the role"),
+        (
+            r"\b(?:move|moving|proceed|proceeding) forward with (?:other )?(?:candidates|applicants) (?:whose|who)\b",
+            8,
+            "moving forward with candidates who fit better",
+        ),
+        (r"\bbest of luck in your (?:job )?search\b", 3, "best of luck in your search"),
         (r"\bwe regret\b", 4, "we regret"),
         (r"\bunfortunately\b", 3, "unfortunately"),
         (r"\bnot (?:be )?(?:moving|proceeding|advancing)\b", 4, "not moving forward"),
@@ -119,6 +163,23 @@ SIGNALS: dict[str, list[tuple[str, int, str]]] = {
         (r"\baccept (?:our|the) offer\b", 5, "accept the offer"),
         (r"\boffer to join\b", 5, "offer to join"),
         (r"\bstart date\b", 2, "start date"),
+        (r"\biş teklif\w*|\bteklif mektub\w*", 6, "job offer (Turkish)"),
+        (r"\bsize (?:bir )?teklif\w*", 5, "offer to you (Turkish)"),
+        (r"\baramıza hoş geldin\w*", 4, "welcome to the team (Turkish)"),
+    ],
+    "incomplete": [
+        (
+            r"\b(?:complete|finish|activate|finali[sz]e|submit) (?:your|the) (?:job )?application\b",
+            6,
+            "complete your application",
+        ),
+        (r"\bapplication (?:is )?(?:incomplete|not (?:yet )?complete)\b", 6, "application incomplete"),
+        (r"\bconfirm your identity\b", 5, "confirm your identity"),
+        (
+            r"\bbaşvuru\w*\s+tamamla(?:ma|mak|yın|yınız|nız)?\b|\btamamlanmamış\s+başvuru\w*",
+            6,
+            "complete your application (Turkish)",
+        ),
     ],
     "assessment": [
         (r"\bcoding challenge\b", 6, "coding challenge"),
@@ -144,9 +205,32 @@ SIGNALS: dict[str, list[tuple[str, int, str]]] = {
             "complete assessment",
         ),
         (r"\bcode sample\b", 3, "code sample"),
+        (
+            r"\binvited (?:you )?to (?:take|complete) (?:an? |the |our )?(?:\w+ ){0,2}(?:assess?ment|test|challenge)\b",
+            8,
+            "invited to an assessment",
+        ),
+        (r"\b(?:your|an|the) assess?ment (?:is waiting|request|link)\b", 6, "assessment waiting"),
+        (r"\bassess?ment (?:request|invitation|reminder)\b", 6, "assessment request"),
+        (
+            r"\b(?:complete|take) (?:our|the|your) (?:\w+ ){0,2}(?:assess?ment|test)\b",
+            6,
+            "complete our assessment",
+        ),
+        (r"\bcoding (?:test|assess?ment)\b", 5, "coding test"),
+        (r"\b(?:testgorilla|wonderlic|hackerearth|coderbyte|imocha)\b", 5, "assessment platform"),
+        (
+            r"\b(?:değerlendirme|online|teknik|yetenek|kodlama)\s+(?:testi|sınavı|sınav)\w*|\bvaka çalışması\w*",
+            6,
+            "assessment (Turkish)",
+        ),
     ],
     "interview": [
-        (r"\binterview(?:s|ing)?\b", 4, "interview"),
+        (
+            r"\binterview(?:s|ing)?\b(?!\s+(?:prep|preparation|tips|questions|coach|practice|engine))",
+            4,
+            "interview",
+        ),
         (r"\bphone screen\b", 5, "phone screen"),
         (r"\btechnical screen\b", 5, "technical screen"),
         (
@@ -163,6 +247,17 @@ SIGNALS: dict[str, list[tuple[str, int, str]]] = {
         (r"\bvirtual (?:onsite|on-site)\b", 4, "virtual onsite"),
         (r"\bonsite\b", 3, "onsite"),
         (r"\bhiring manager\b", 3, "hiring manager"),
+        (r"\bmülakat\w*", 4, "interview (Turkish)"),
+        (
+            r"\b(?:görüşme|mülakat)\w*\s+(?:davet|planla|ayarla)\w*|\b(?:görüşmeye|mülakata)\s+davet\w*",
+            6,
+            "interview invitation (Turkish)",
+        ),
+        (
+            r"\buygun\s+olduğunuz\s+(?:gün|saat|zaman|tarih)\w*",
+            4,
+            "your availability (Turkish)",
+        ),
     ],
     "applied": [
         (
@@ -170,6 +265,21 @@ SIGNALS: dict[str, list[tuple[str, int, str]]] = {
             6,
             "application confirmation (Turkish)",
         ),
+        (
+            r"\bbaşvuru\w*\s+(?:bize\s+)?(?:aldık|alındı|alınmıştır|aldı|ulaştı|tamamlandı|iletildi)\w*"
+            r"|\bbaşvurduğun(?:uz)?\s+için\s+teşekkür\w*"
+            r"|\byanıtların(?:ız)?\s+(?:başarılı\s+bir\s+şekilde\s+)?(?:tarafımıza\s+)?iletil\w*"
+            r"|\bbaşvuru\w*\s+(?:incele|değerlendir)\w*",
+            6,
+            "application received (Turkish)",
+        ),
+        (
+            r"\b(?:gösterdiğin|gösterdiğiniz)\s+il\s?gi\s+(?:ve[^.]{0,40}?)?için\s+teşekkür\w*",
+            3,
+            "thanks for your interest (Turkish)",
+        ),
+        (r"\btaking the time to apply\b", 4, "taking the time to apply"),
+        (r"\b(?:currently )?reviewing (?:all )?applications\b", 4, "reviewing applications"),
         (
             r"\byou (?:have )?applied\b|\bapplication (?:was |has been )?sent to\b",
             6,
@@ -235,21 +345,78 @@ SIGNALS: dict[str, list[tuple[str, int, str]]] = {
         (r"\bperfect fit for (?:a|the|your)\b", 3, "perfect fit"),
         (r"\bjoin (?:our|the) team\b", 3, "join our team"),
         (r"\bare you (?:looking|open)\b", 3, "are you looking"),
+        (r"\b(?:global )?recruitment (?:firm|agency)\b", 4, "recruitment firm"),
+        (
+            r"\bprofilin(?:izi|i)\s+(?:inceledik|gördük|beğendik)\b|\bsizi\s+(?:bir\s+)?pozisyon\w*\s+için\b",
+            5,
+            "we saw your profile (Turkish)",
+        ),
     ],
 }
 
 # Order matters only as a tie-breaker: earlier wins on equal score.
-KIND_PRIORITY = ["offer", "rejected", "assessment", "interview", "applied", "outreach"]
+KIND_PRIORITY = [
+    "offer",
+    "rejected",
+    "assessment",
+    "interview",
+    "incomplete",
+    "applied",
+    "outreach",
+]
+
+# Nearly every rejection, test invitation and reminder also thanks the reader
+# for applying, so "applied" vocabulary is everywhere. These outcomes are
+# phrased specifically enough that, once they clear MIN_SCORE, they beat it.
+DECISIVE_KINDS = ("offer", "rejected", "assessment", "incomplete")
 
 MIN_SCORE = 4
+
+# Turkish mail is often written without diacritics ("basvurunuz"), and
+# ``re.I`` cannot match "İ" with "i" reliably. Patterns and text are both
+# folded to ASCII before scoring; the mapping is 1:1, so offsets survive.
+_FOLD = str.maketrans("çğıöşüâîûÇĞİÖŞÜÂÎÛ", "cgiosuaiuCGIOSUAIU")
+
+
+def fold(text: str) -> str:
+    return (text or "").translate(_FOLD)
+
+
+_URL = re.compile(r"https?://\S+|www\.\S+", re.I)
+_OWN_APPLICATION = re.compile(
+    fold(r"başvurunuz|başvurun\b|your application|application (?:was |has been )?sent|you applied"),
+    re.I,
+)
+_CONDITIONAL = re.compile(r"\b(?:if|should|unless|in case|eger)\b[^.!?\n]*[.!?\n]", re.I)
+
+# Mail that mentions jobs without being about one of the user's applications:
+# job alerts and recommendations, account security codes, and data-retention
+# or talent-pool consent requests. Checked on the subject and opening lines.
+NOT_AN_EVENT = re.compile(
+    fold(
+        r"\bjob alert|\bjobs? (?:for you|you may be interested|matching|recommended)|"
+        r"\bnew jobs? (?:posted|matching|for you)|\brecommended jobs?\b|\bjob recommendations?\b|"
+        r"iş ilanı uyarı|iş ilanlarını görüntüle|ilgilenebileceğiniz|sizin için seçilen|"
+        r"sana uygun ilan|yeni bir ilan yayınla|\bişe al(?:ıyor|acak)\w*|benzer iş ilan|\bjob-?alerts?(?:-noreply)?@|"
+        r"\b(?:one[- ]time password|verification code|security code|onay kodu|doğrulama kodu|aktivasyon kodu)\b|"
+        r"\bdata retention\b|\bveri saklama\b|kişisel veri|\btalent pool\b|"
+        r"\bprofile is about to be purged\b|\bkeep your information\b|"
+        r"\byour experience at\b|\bcandidate experience survey\b|"
+        r"\bpatent\w*|\binvention (?:title|disclosure)\b|\bapplication filed\b"
+    ),
+    re.I,
+)
 
 # A message has to look job-related before we even bother scoring it.
 # "appl" needs its whole family spelled out: "applic\w+" alone misses "apply",
 # "applying" and "applied", which are exactly what a short confirmation says.
 RELEVANCE_KEYWORDS = re.compile(
-    r"\b(?:appl(?:y|ies|ying|ied|icat\w*|icant\w*)|candidat\w+|interview\w*|recruit\w+|"
-    r"hiring|resume|cv|position|role|job|opening|opportunit\w+|assess\w+|screening|"
-    r"onboarding|talent|career\w*|offer|employ\w+|internship|vacanc\w+|başvuru\w*|mülakat\w*)\b",
+    fold(
+        r"\b(?:appl(?:y|ies|ying|ied|icat\w*|icant\w*)|candidat\w+|interview\w*|recruit\w+|"
+        r"hiring|resume|cv|position|role|job|opening|opportunit\w+|assess\w+|screening|"
+        r"onboarding|talent|career\w*|offer|employ\w+|internship|vacanc\w+|başvur\w*|mülakat\w*|"
+        r"aday\w*|pozisyon\w*|işe alım\w*|kariyer\w*|özgeçmiş\w*|staj\w*|iş teklif\w*)\b"
+    ),
     re.I,
 )
 
@@ -1047,14 +1214,27 @@ def relevance(msg: EmailMessage) -> str:
     """
     subject = msg.subject or ""
 
-    if IRRELEVANT_KEYWORDS.search(subject) and not RELEVANCE_KEYWORDS.search(subject):
+    if IRRELEVANT_KEYWORDS.search(subject) and not RELEVANCE_KEYWORDS.search(
+        fold(subject)
+    ):
+        return RELEVANCE_IRRELEVANT
+
+    # Job alerts, security codes and consent requests use hiring vocabulary but
+    # are never an event; saying so here also keeps them away from the model.
+    # A LinkedIn update about the user's own application also lists
+    # recommended jobs, so the check never overrides such a subject.
+    if NOT_AN_EVENT.search(
+        fold(f"{msg.sender_email} {subject} {msg.snippet}")
+    ) and not _OWN_APPLICATION.search(fold(subject)):
         return RELEVANCE_IRRELEVANT
 
     if _root_domain(_domain_of(msg.sender_email)) in ATS_DOMAINS:
         return RELEVANCE_JOB
 
     haystack = " ".join(filter(None, [subject, msg.snippet, msg.body[:4000]]))
-    return RELEVANCE_JOB if RELEVANCE_KEYWORDS.search(haystack) else RELEVANCE_UNKNOWN
+    return (
+        RELEVANCE_JOB if RELEVANCE_KEYWORDS.search(fold(haystack)) else RELEVANCE_UNKNOWN
+    )
 
 
 def is_job_related(msg: EmailMessage) -> bool:
@@ -1158,13 +1338,18 @@ def _score(
 ) -> tuple[dict[str, float], dict[str, list[str]]]:
     scores: dict[str, float] = {}
     matched: dict[str, list[str]] = {}
+    subject = fold(msg.subject)
+    # Links carry words like "interview" in tracking paths; they are not prose.
+    # Conditional sentences ("If you are not selected, ...") describe what
+    # might happen, not what did.
+    text = _CONDITIONAL.sub(" ", fold(_URL.sub(" ", text)))
 
     for kind, signals in SIGNALS.items():
         total = 0.0
         hits: list[str] = []
         for pattern, weight, label in signals:
-            regex = re.compile(pattern, re.I)
-            subject_hit = bool(regex.search(msg.subject or ""))
+            regex = re.compile(fold(pattern), re.I)
+            subject_hit = bool(regex.search(subject))
             body_hit = bool(regex.search(text))
             if subject_hit:
                 total += weight * 2
@@ -1189,8 +1374,13 @@ def classify(msg: EmailMessage) -> Classification | None:
     if not scores:
         return None
 
+    decisive = {
+        kind: score
+        for kind, score in scores.items()
+        if kind in DECISIVE_KINDS and score >= MIN_SCORE
+    }
     best = max(
-        scores.items(),
+        (decisive or scores).items(),
         key=lambda item: (item[1], -KIND_PRIORITY.index(item[0])),
     )
     kind, score = best

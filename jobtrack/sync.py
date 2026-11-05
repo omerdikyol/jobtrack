@@ -78,7 +78,7 @@ def run_sync(
     """
     summary = SyncSummary()
     own = (own_address or "").strip().lower()
-    analysis_key = getattr(analyzer, "cache_key", "rules-v7")
+    analysis_key = getattr(analyzer, "cache_key", "rules-v8")
     known = set() if recheck else store.synced_message_ids()
     false_positives = store.false_positive_message_ids()
     known.update(false_positives)
