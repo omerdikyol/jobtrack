@@ -6,7 +6,7 @@ import sqlite3
 
 from jobtrack.categories import identity_key, infer_category
 
-VERSION = 3
+VERSION = 6
 
 
 def migrate(conn: sqlite3.Connection) -> None:
@@ -92,3 +92,47 @@ def migrate(conn: sqlite3.Connection) -> None:
                 "CREATE INDEX idx_reviews_status ON message_reviews(status, event_date DESC)"
             )
             conn.execute("PRAGMA user_version = 3")
+
+        if version < 4:
+            # Filled from the mail that announced the application; a correction
+            # made in the workspace stays, exactly like notes and follow-up dates.
+            columns = {
+                row[1] for row in conn.execute("PRAGMA table_info(applications)")
+            }
+            if "location" not in columns:
+                conn.execute("ALTER TABLE applications ADD COLUMN location TEXT")
+            conn.execute("PRAGMA user_version = 4")
+
+        # Intermediate builds stamped version 4 or 5 without the location
+        # column or the merge table. Ensure both exist for any database that
+        # predates version 6, without touching rows that are already there.
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(applications)")}
+        if "location" not in columns:
+            conn.execute("ALTER TABLE applications ADD COLUMN location TEXT")
+        conn.execute("""CREATE TABLE IF NOT EXISTS application_merge_messages (
+            message_id TEXT PRIMARY KEY,
+            application_id INTEGER NOT NULL REFERENCES applications(id) ON DELETE CASCADE
+        )""")
+        if version < 5:
+            conn.execute("PRAGMA user_version = 5")
+
+        # A snapshot keeps "mark as not an application" reversible. Marks made
+        # before this table existed have no row here and can only be recovered
+        # from their Gmail messages. Create it idempotently so an already
+        # stamped database is healed too, then record the new schema version.
+        conn.execute("""CREATE TABLE IF NOT EXISTS false_positive_marks (
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            application_id INTEGER NOT NULL,
+            company        TEXT NOT NULL,
+            role           TEXT,
+            category       TEXT NOT NULL DEFAULT 'employment',
+            message_ids    TEXT NOT NULL,
+            snapshot       TEXT NOT NULL,
+            created_at     TEXT NOT NULL
+        )""")
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_false_positive_marks_created "
+            "ON false_positive_marks(created_at DESC)"
+        )
+        if version < 6:
+            conn.execute("PRAGMA user_version = 6")

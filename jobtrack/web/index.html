@@ -19,7 +19,7 @@
     </script>
     <title>Job Tracker · Your search, in focus</title>
     <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="/assets/styles.css?v=sync-menu" />
+    <link rel="stylesheet" href="/assets/styles.css?v=false-positive" />
     <script type="module" src="/assets/app.js"></script>
   </head>
   <body>
@@ -85,7 +85,7 @@
             <button
               class="button button-primary"
               id="sync-all"
-              title="Recheck all matching recruiting emails, across all dates"
+              title="Recheck matching recruiting emails within the selected date range and email limit"
             >
               <span data-icon="sync"></span><span>Sync all</span>
             </button>
@@ -271,9 +271,20 @@
               <h1 id="applications-title">Applications</h1>
               <p>Search, filter, and inspect application history.</p>
             </div>
-            <button class="button" id="export-button">
-              <span data-icon="download"></span>Export CSV
-            </button>
+            <div class="heading-actions">
+              <button class="button" id="false-positive-open">
+                <span data-icon="shield"></span>Review marked applications
+                <span
+                  class="count-bubble"
+                  id="false-positive-count"
+                  hidden
+                  >0</span
+                >
+              </button>
+              <button class="button" id="export-button">
+                <span data-icon="download"></span>Export CSV
+              </button>
+            </div>
           </div>
           <div class="applications-toolbar">
             <div class="search-field">
@@ -358,6 +369,41 @@
       aria-labelledby="detail-title"
     >
       <div id="detail-content"></div>
+    </dialog>
+    <dialog
+      id="false-positive-dialog"
+      class="modal"
+      aria-labelledby="false-positive-title"
+    >
+      <div class="modal-header">
+        <div>
+          <div class="eyebrow">WORKSPACE REVIEW</div>
+          <h2 id="false-positive-title">Marked as not applications</h2>
+        </div>
+        <button
+          class="button icon-button"
+          data-close="false-positive-dialog"
+          aria-label="Close marked applications"
+        >
+          <span data-icon="close"></span>
+        </button>
+      </div>
+      <p class="modal-description">
+        Marking an application as “not an application” removes it and keeps its
+        emails out of future syncs. Restoring a mark brings back the saved
+        application details and email timeline, and clears those ignore
+        markers.
+      </p>
+      <div id="false-positive-content"></div>
+      <div class="modal-footer">
+        <button
+          class="button"
+          data-close="false-positive-dialog"
+          type="button"
+        >
+          Close
+        </button>
+      </div>
     </dialog>
     <dialog id="sync-dialog" class="modal" aria-labelledby="sync-title">
       <div class="modal-header">

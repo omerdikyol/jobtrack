@@ -683,3 +683,61 @@ def test_consensus_cannot_override_upwork_invitation_job_name():
     assert result.role == "Interview Process"
     assert result.review["status"] == "unresolved"
     assert "Upwork invitation title" in result.review["resolution"]
+
+
+def test_linkedin_keyword_free_title_english_card():
+    from jobtrack.classify import classify
+
+    message = make_message(
+        "Your application was sent to Acme",
+        "Your application was sent to Acme\nAssociate II\nAcme · San Francisco, CA\nİlgilenebileceğiniz benzer iş ilanları\nBackend Developer",
+        sender="LinkedIn <jobs-noreply@linkedin.com>",
+    )
+    result = classify(message)
+    assert (result.kind, result.company, result.role) == (
+        "applied",
+        "Acme",
+        "Associate II",
+    )
+
+
+def test_linkedin_keyword_free_title_turkish_card():
+    from jobtrack.classify import classify
+
+    company = "NAR Sistem Teknoloji A.Ş."
+    message = make_message(
+        f"Sam, başvurunuz {company} şirketine gönderildi",
+        (
+            f"Başvurunuz {company} şirketine gönderildi\n"
+            "Associate II\n"
+            f"{company} · İstanbul (Hybrid)\n"
+            "İlgilenebileceğiniz benzer iş ilanları\n"
+            "Backend Developer\n"
+            "Software Engineer\n"
+            "Bu e-posta, Sam (Software Engineer & Researcher) için gönderilmiştir"
+        ),
+        sender="LinkedIn <jobs-noreply@linkedin.com>",
+    )
+    result = classify(message)
+    assert (result.kind, result.company, result.role) == (
+        "applied",
+        company,
+        "Associate II",
+    )
+
+
+def test_linkedin_keyword_free_title_english_standalone():
+    from jobtrack.classify import classify
+
+    result = classify(
+        make_message(
+            "Your application was sent to Acme",
+            "Associate II\nYour application was sent to Acme.",
+            sender="LinkedIn <jobs-noreply@linkedin.com>",
+        )
+    )
+    assert (result.kind, result.company, result.role) == (
+        "applied",
+        "Acme",
+        "Associate II",
+    )

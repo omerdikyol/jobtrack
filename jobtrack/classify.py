@@ -477,7 +477,8 @@ ROLE_KEYWORDS = re.compile(
     r"full[- ]stack|devops|sre|qa|quality|security|cloud|platform|mobile|ios|android|"
     r"machine learning|ml|ai|operations|finance|accounting|legal|customer|support|"
     r"success|growth|content|brand|ux|ui|research|strategy|business|yazılım|geliştirici|"
-    r"geliştirme|mühendis\w*|uzman\w*|stajyer\w*|yönetici\w*|analist)\b",
+    r"geliştirme|mühendis\w*|uzman\w*|stajyer\w*|yönetici\w*|analist|"
+    r"ar-ge|arge|araştırma|personel|araştırmacı)\b",
     re.I,
 )
 
@@ -568,6 +569,12 @@ def _strip_generic_suffix(name: str) -> str:
 def _company_candidate(value: str) -> str | None:
     """Clean a raw match and decide whether it can be an employer name."""
     cleaned = _clean(value)
+    # Preserve the trailing dot of the Turkish "A.Ş." abbreviation, which
+    # ``_clean`` would otherwise strip as sentence punctuation.
+    if cleaned.lower().endswith("a.ş") and (value or "").strip().lower().endswith(
+        "a.ş."
+    ):
+        cleaned = cleaned + "."
     # "your application to join Trellis" -> "Trellis"
     cleaned = re.sub(
         r"^(?:join|at|the company|company)\s+", "", cleaned, flags=re.I
@@ -696,16 +703,17 @@ def extract_company(msg: EmailMessage) -> str | None:
     is_ats = _root_domain(_domain_of(msg.sender_email)) in ATS_DOMAINS
 
     if _root_domain(_domain_of(msg.sender_email)) == "linkedin.com":
-        for pattern in (
-            r"başvurunuz\s+(.+?)\s+şirketine gönderildi",
-            r"^(.+?)\s+şirketindeki\s+.+?\s+başvurunuz",
-            r"başvurunuz\s+(.+?)\s+tarafından görüntülendi",
-        ):
-            match = re.search(pattern, subject, re.I)
-            if match:
-                candidate = _company_candidate(match.group(1))
-                if candidate:
-                    return candidate
+        for text in (subject, msg.body[:6000], msg.snippet):
+            for pattern in (
+                r"başvurunuz\s+(.+?)\s+şirketine gönderildi",
+                r"^(.+?)\s+şirketindeki\s+.+?\s+başvurunuz",
+                r"başvurunuz\s+(.+?)\s+tarafından görüntülendi",
+            ):
+                match = re.search(pattern, text, re.I | re.M)
+                if match:
+                    candidate = _company_candidate(match.group(1))
+                    if candidate:
+                        return candidate
         # LinkedIn delivery templates name the actual employer, often in the body.
         for text in (subject, msg.snippet, msg.body[:6000]):
             match = re.search(
@@ -880,6 +888,27 @@ def upwork_invitation_role(msg: EmailMessage) -> str | None:
     return None
 
 
+def _linkedin_title_fallback(value: str, employer: str | None) -> str | None:
+    """A LinkedIn card title candidate that does not need ROLE_KEYWORDS."""
+    text = html.unescape(value).strip()
+    if not text or len(text) < 2 or len(text) > 120:
+        return None
+    if re.search(r"https?://|@", text):
+        return None
+    if employer and text.casefold() == _clean(employer).casefold():
+        return None
+    if re.search(
+        r"thank you|thanks for|received your|we have|we are|your interest|free|"
+        r"connects needed|application (?:was |has been )?sent|you (?:have )?applied|"
+        r"başvurunuz|görüntülendi|gönderildi|İlgilenebileceğiniz|benzer iş|"
+        r"similar jobs|gönderilmiştir",
+        text,
+        re.I,
+    ):
+        return None
+    return text
+
+
 def extract_role(msg: EmailMessage) -> str | None:
     invitation_role = upwork_invitation_role(msg)
     if invitation_role:
@@ -895,7 +924,11 @@ def extract_role(msg: EmailMessage) -> str | None:
         )
 
     if _root_domain(_domain_of(msg.sender_email)) == "linkedin.com":
-        explicit = re.search(r"şirketindeki\s+(.+?)\s+başvurunuz", msg.subject, re.I)
+        explicit = None
+        for text in (msg.subject, msg.body[:6000]):
+            explicit = re.search(r"şirketindeki\s+(.+?)\s+başvurunuz", text, re.I)
+            if explicit:
+                break
         if explicit:
             candidate = title(explicit.group(1))
             if candidate:
@@ -911,8 +944,27 @@ def extract_role(msg: EmailMessage) -> str | None:
         )
 
         def employer_line(value: str) -> bool:
-            label = value.split(" · ", 1)[0].strip().casefold()
-            return bool(employer) and label == employer.casefold()
+            label = _clean(value.split(" · ", 1)[0]).casefold()
+            return bool(employer) and label == _clean(employer).casefold()
+
+        def card_title(value: str) -> str | None:
+            text = html.unescape(value).strip()
+            if not text or len(text) < 2 or len(text) > 120:
+                return None
+            if heading.search(text) or employer_line(text):
+                return None
+            if employer and text.casefold() == _clean(employer).casefold():
+                return None
+            if _FLOW_WORDS.search(text):
+                return None
+            if re.search(
+                r"başvurunuz|görüntülendi|gönderildi|application (?:was |has been )?sent|"
+                r"you (?:have )?applied|İlgilenebileceğiniz|benzer iş|similar jobs",
+                text,
+                re.I,
+            ):
+                return None
+            return text
 
         for index, line in enumerate(lines[:20]):
             if heading.search(line):
@@ -920,6 +972,15 @@ def extract_role(msg: EmailMessage) -> str | None:
                 following_lines = lines[index + 1 :]
                 while following_lines and heading.search(following_lines[0]):
                     following_lines = following_lines[1:]
+                # Locate the card boundary: the title sits immediately before
+                # the employer line, which may carry location metadata.
+                for j, following in enumerate(following_lines[:12]):
+                    if employer_line(following):
+                        if j > 0:
+                            candidate = card_title(following_lines[j - 1])
+                            if candidate:
+                                return candidate
+                        break
                 for following in following_lines[:3]:
                     if employer_line(following):
                         break
@@ -928,6 +989,9 @@ def extract_role(msg: EmailMessage) -> str | None:
                         return candidate
                 card = following_lines[:2]
                 if len(card) == 2 and employer_line(card[1]):
+                    candidate = card_title(card[0])
+                    if candidate:
+                        return candidate
                     if 2 <= len(card[0]) <= 120:
                         return card[0]
                 if lines[index + 1 :]:
@@ -940,11 +1004,14 @@ def extract_role(msg: EmailMessage) -> str | None:
         re.I,
     ):
         # LinkedIn often renders the title on its own line, rather than in a sentence.
-        titles = {
-            candidate
-            for line in msg.body.splitlines()[:40]
-            if (candidate := title(line.strip())) and not _FLOW_WORDS.search(candidate)
-        }
+        titles = set()
+        for line in msg.body.splitlines()[:40]:
+            raw = line.strip()
+            candidate = title(raw)
+            if candidate is None:
+                candidate = _linkedin_title_fallback(raw, employer)
+            if candidate and not _FLOW_WORDS.search(candidate):
+                titles.add(candidate)
         if len(titles) == 1:
             return titles.pop()
 

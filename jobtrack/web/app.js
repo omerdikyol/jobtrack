@@ -27,6 +27,7 @@ const state = {
       : "employment",
   applications: [],
   overview: null,
+  falsePositives: { marks: [], legacy: [], count: 0 },
   status: "all",
   search: "",
   sort: "recent",
@@ -92,12 +93,16 @@ function go(page) {
 async function refresh() {
   const version = ++refreshVersion;
   try {
-    const [applications, overview] = await Promise.all([
+    const [applications, overview, falsePositives] = await Promise.all([
       api("/api/applications" + categorySuffix()),
       api("/api/overview" + categorySuffix()),
+      api("/api/false-positives"),
     ]);
     if (version !== refreshVersion) return;
     state.applications = applications.applications;
+    state.falsePositives = falsePositives;
+    $("false-positive-count").textContent = falsePositives.count;
+    $("false-positive-count").hidden = !falsePositives.count;
     document.querySelectorAll("[data-category]").forEach((el) => {
       const selected = el.dataset.category === state.category;
       el.classList.toggle("selected", selected);
@@ -329,7 +334,7 @@ async function openDetail(id) {
       .reverse()
       .find((ev) => ev.gmail_url)?.gmail_url;
     $("detail-content").innerHTML =
-      `<div class="detail-top"><span class="eyebrow">${a.category === "freelance" ? "FREELANCE PROJECT" : "EMPLOYMENT APPLICATION"} · #${a.id}</span><button class="button icon-button" data-close="detail-dialog" aria-label="Close application details">${icon("close")}</button></div><div class="detail-head"><div class="detail-company">${avatar(a.company)}<div><h2 id="detail-title">${e(a.company)}</h2><p>${e(a.role || "Role not stated")}</p></div></div><div class="detail-head-meta">${badge(a.status)}<span>First seen ${e(fullDate(a.first_seen))}</span>${gmailLink(latestURL)}</div></div>${state.asOf ? `<div class="snapshot-detail">Email history as of ${e(dateOnly(state.asOf))}. Return to today to edit this application.</div>` : `<section class="detail-section"><details class="detail-edit"><summary>Notes & application details</summary><form id="application-edit"><div class="form-grid"><label>Company<input id="edit-company" value="${e(a.company)}" required maxlength="200"></label><label>Role<input id="edit-role" value="${e(a.role)}" maxlength="300" placeholder="Role not stated"></label></div><label>Work category<select id="edit-category"><option value="employment" ${a.category === "employment" ? "selected" : ""}>Employment</option><option value="freelance" ${a.category === "freelance" ? "selected" : ""}>Freelance</option></select></label><div class="form-grid"><label>Status correction<select id="edit-status"><option value="">Automatic · from email</option>${stages.map((k) => `<option value="${k}" ${a.status_override === k ? "selected" : ""}>${labels[k]}</option>`).join("")}</select></label><label>Follow-up date<input id="edit-followup" value="${e(a.follow_up_on)}" type="date"></label></div><label>Your notes<textarea id="edit-notes" aria-label="Your notes" maxlength="20000" placeholder="Contacts, interview notes, and next actions.">${e(a.notes)}</textarea></label><div id="edit-result" class="form-result" hidden role="status"></div><button class="button button-primary" type="submit">Save application ${icon("check")}</button></form></details>${a.notes ? `<div class="notes-preview">${e(a.notes)}</div>` : ""}${a.follow_up_on ? `<div class="follow-up-summary">${icon("calendar")}Follow up ${e(dateOnly(a.follow_up_on))}</div>` : ""}${a.status_override ? '<div class="follow-up-summary">Status corrected by you. Choose Automatic to use email history again.</div>' : ""}</section>`}<section class="detail-section"><h3>Email timeline <span class="count-bubble">${events.length}</span></h3><ol class="timeline">${[
+      `<div class="detail-top"><span class="eyebrow">${a.category === "freelance" ? "FREELANCE PROJECT" : "EMPLOYMENT APPLICATION"} · #${a.id}</span><button class="button icon-button" data-close="detail-dialog" aria-label="Close application details">${icon("close")}</button></div><div class="detail-head"><div class="detail-company">${avatar(a.company)}<div><h2 id="detail-title">${e(a.company)}</h2><p>${e(a.role || "Role not stated")}</p></div></div><div class="detail-head-meta">${badge(a.status)}<span>First seen ${e(fullDate(a.first_seen))}</span>${gmailLink(latestURL)}</div></div>${state.asOf ? `<div class="snapshot-detail">Email history as of ${e(dateOnly(state.asOf))}. Return to today to edit this application.</div>` : `<section class="detail-section"><details class="detail-edit"><summary>Notes & application details</summary><form id="application-edit"><div class="form-grid"><label>Company<input id="edit-company" value="${e(a.company)}" required maxlength="200"></label><label>Role<input id="edit-role" value="${e(a.role)}" maxlength="300" placeholder="Role not stated"></label></div><label>Work category<select id="edit-category"><option value="employment" ${a.category === "employment" ? "selected" : ""}>Employment</option><option value="freelance" ${a.category === "freelance" ? "selected" : ""}>Freelance</option></select></label><div class="form-grid"><label>Status correction<select id="edit-status"><option value="">Automatic · from email</option>${stages.map((k) => `<option value="${k}" ${a.status_override === k ? "selected" : ""}>${labels[k]}</option>`).join("")}</select></label><label>Follow-up date<input id="edit-followup" value="${e(a.follow_up_on)}" type="date"></label></div><label>Your notes<textarea id="edit-notes" aria-label="Your notes" maxlength="20000" placeholder="Contacts, interview notes, and next actions.">${e(a.notes)}</textarea></label><div id="edit-result" class="form-result" hidden role="status"></div><button class="button button-primary" type="submit">Save application ${icon("check")}</button></form></details>${a.notes ? `<div class="notes-preview">${e(a.notes)}</div>` : ""}${a.follow_up_on ? `<div class="follow-up-summary">${icon("calendar")}Follow up ${e(dateOnly(a.follow_up_on))}</div>` : ""}${a.status_override ? '<div class="follow-up-summary">Status corrected by you. Choose Automatic to use email history again.</div>' : ""}</section><section class="false-positive-section"><button class="button button-danger" id="mark-false-positive" type="button">Mark as not an application</button><span>Removes this application from the workspace. Its emails will stay ignored, but you can review and restore the mark later.</span></section>`}<section class="detail-section"><h3>Email timeline <span class="count-bubble">${events.length}</span></h3><ol class="timeline">${[
         ...events,
       ]
         .reverse()
@@ -374,8 +379,96 @@ async function openDetail(id) {
         button.disabled = false;
       }
     });
+    $("mark-false-positive")?.addEventListener("click", async (event) => {
+      const button = event.currentTarget;
+      if (
+        !window.confirm(
+          "Remove this application and ignore all its emails in future syncs? You can restore it later from “Marked as not applications”.",
+        )
+      )
+        return;
+      button.disabled = true;
+      try {
+        await api(`/api/applications/${a.id}/false-positive`, {
+          method: "DELETE",
+        });
+        $("detail-dialog").close();
+        await refresh();
+        toast("Application removed. Its emails stay ignored until you restore it.");
+      } catch (error) {
+        toast(error.message);
+        button.disabled = false;
+      }
+    });
   } catch (error) {
     notice(`Could not open that application: ${error.message}`);
+  }
+}
+function openFalsePositives() {
+  $("false-positive-content").innerHTML =
+    '<p class="mark-loading">Loading marked applications…</p>';
+  if (!$("false-positive-dialog").open) $("false-positive-dialog").showModal();
+  loadFalsePositives();
+}
+async function loadFalsePositives() {
+  try {
+    const data = await api("/api/false-positives");
+    state.falsePositives = data;
+    $("false-positive-count").textContent = data.count;
+    $("false-positive-count").hidden = !data.count;
+    renderFalsePositives(data);
+  } catch (error) {
+    $("false-positive-content").innerHTML =
+      `<p class="mark-error">Could not load marked applications: ${e(error.message)}</p>`;
+  }
+}
+function renderFalsePositives(data) {
+  if (!data.count) {
+    $("false-positive-content").innerHTML =
+      `<div class="large-empty"><span data-icon="check">${icon("check")}</span><h2>Nothing marked</h2><p>Applications you mark as “not an application” will appear here so you can review and restore them.</p></div>`;
+    return;
+  }
+  const marks = data.marks
+    .map(
+      (mark) => `<article class="mark-card"><div class="mark-card-head"><strong>${e(mark.company)}</strong><span>Marked ${e(fullDate(mark.created_at))}</span></div><p>${e(mark.role || "Role not stated")} · ${mark.message_count} email${mark.message_count === 1 ? "" : "s"} saved${mark.restorable ? "" : " · no snapshot"}</p>${mark.restorable ? `<button class="button button-primary" type="button" data-restore-mark="${mark.id}">Restore application ${icon("arrow")}</button>` : '<p class="mark-warning">This mark has no saved application snapshot. Its emails are listed below for recovery from Gmail.</p>'}</article>`,
+    )
+    .join("");
+  const legacy = data.legacy
+    .map(
+      (mark) => `<article class="mark-card legacy-mark"><div class="mark-card-head"><strong>Marked email</strong><code>${e(mark.message_id)}</code></div><p>No application details were saved when this mark was made.</p><button class="button" type="button" data-restore-legacy="${e(mark.message_id)}">Recover from Gmail ${icon("sync")}</button></article>`,
+    )
+    .join("");
+  $("false-positive-content").innerHTML =
+    `${legacy ? `<section class="mark-group"><h3>Older marks without snapshots <span class="count-bubble">${data.legacy.length}</span></h3><p class="mark-warning">These marks were made before JobTrack saved application snapshots. Each Gmail message can be fetched and classified again, but its company and role come only from that message, and its notes, status corrections, follow-up date, and exact place in the original timeline were never stored. Only the message evidence can be recovered.</p>${legacy}</section>` : ""}${marks ? `<section class="mark-group"><h3>Marked applications <span class="count-bubble">${data.marks.length}</span></h3>${marks}</section>` : ""}`;
+}
+async function restoreMark(markId, button) {
+  button.disabled = true;
+  try {
+    const { application } = await api(
+      `/api/false-positives/${markId}/restore`,
+      { method: "POST" },
+    );
+    toast(`${application.company} restored with its saved timeline.`);
+    await refresh();
+    await loadFalsePositives();
+  } catch (error) {
+    toast(error.message);
+    button.disabled = false;
+  }
+}
+async function restoreLegacyMark(messageId, button) {
+  button.disabled = true;
+  try {
+    const { application } = await api(
+      `/api/false-positives/legacy/${encodeURIComponent(messageId)}/restore`,
+      { method: "POST" },
+    );
+    toast(`${application.company} recovered from its Gmail message.`);
+    await refresh();
+    await loadFalsePositives();
+  } catch (error) {
+    toast(error.message);
+    button.disabled = false;
   }
 }
 async function loadActivity() {
@@ -533,7 +626,12 @@ async function startSync(preview = false, quick = false) {
   });
   const payload = quick
     ? quick === "all"
-      ? { since: "0", limit: 0, recheck: true }
+      ? {
+          since: $("sync-since").value || "365",
+          before: $("sync-before").value || null,
+          limit: Number($("sync-limit").value),
+          recheck: true,
+        }
       : { limit: 0, recheck: false }
     : {
         since: $("sync-since").value || "365",
@@ -698,6 +796,16 @@ $("back-to-now").addEventListener("click", () => {
   refresh();
 });
 $("export-button").addEventListener("click", exportCSV);
+$("false-positive-open").addEventListener("click", openFalsePositives);
+$("false-positive-content").addEventListener("click", (event) => {
+  const mark = event.target.closest("[data-restore-mark]");
+  if (mark) {
+    restoreMark(mark.dataset.restoreMark, mark);
+    return;
+  }
+  const legacy = event.target.closest("[data-restore-legacy]");
+  if (legacy) restoreLegacyMark(legacy.dataset.restoreLegacy, legacy);
+});
 $("mail-tab").addEventListener("click", () => {
   state.activityTab = "mail";
   loadActivity();
