@@ -59,7 +59,7 @@ def test_migration_preserves_legacy_history_and_is_repeatable(tmp_path):
             assert db.get_application(1).company == "Acme"
             assert db.total_events() == 1
             assert db.get_events(1)[0].message_id == "legacy"
-            assert db.conn.execute("PRAGMA user_version").fetchone()[0] == 6
+            assert db.conn.execute("PRAGMA user_version").fetchone()[0] == 7
             assert db.get_application(1).notes == ""
 
 
@@ -329,7 +329,9 @@ def test_overview_groups_roles_and_counts_unstated(store):
     event(store, message_id="m2", thread_id="t2", role="Yazılım Mühendisi")
     event(store, message_id="m3", thread_id="t3", role="Machine Learning Engineer")
     event(store, message_id="m4", thread_id="t4", role=None)
-    categories = {c["name"]: c["count"] for c in overview(store)["role_categories"]}
+    from jobtrack.insights import insights
+
+    categories = {c["name"]: c["count"] for c in insights(store)["roles"]}
     assert categories["Software Development"] == 2
     assert categories["AI & Machine Learning"] == 1
     assert categories["Role not stated"] == 1
@@ -449,7 +451,7 @@ def test_overview_endpoint_uses_injected_categorizer(store):
     client = TestClient(create_app(store.path, role_categorizer=FakeCategorizer()))
     categories = {
         category["name"]: category["count"]
-        for category in client.get("/api/overview").json()["role_categories"]
+        for category in client.get("/api/insights").json()["roles"]
     }
     assert categories == {"Data & Analytics": 1}
 
@@ -468,7 +470,7 @@ def test_api_assets_activity_and_security(store):
         assert client.get("/assets/" + asset).status_code == 200
     assert len(client.get("/api/activity").json()["events"]) == 1
     assert client.get("/api/activity?limit=999").status_code == 422
-    assert client.get("/api/health").json()["database_version"] == 6
+    assert client.get("/api/health").json()["database_version"] == 7
     assert (
         client.patch(
             "/api/applications/1",

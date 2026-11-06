@@ -3,7 +3,7 @@ import { $, escapeHTML as e, toast, icon } from "./ui.js";
 import { reviewHTML } from "./reviews.js";
 let current,
   provider,
-  tab = "connections",
+  tab = "general",
   team = [],
   strategy = "single",
   rounds = 2;
@@ -60,6 +60,10 @@ function render() {
       b.setAttribute("aria-selected", String(b.dataset.settingsTab === tab));
       b.tabIndex = b.dataset.settingsTab === tab ? 0 : -1;
     });
+  $("general-panel").hidden = tab !== "general";
+  $("settings-panel").hidden = tab === "general";
+  $("test-model").hidden = tab === "general";
+  if (tab === "general") return;
   $("settings-panel").setAttribute(
     "aria-labelledby",
     `${tab === "connections" ? "connections" : "team"}-tab`,
@@ -101,6 +105,7 @@ async function load() {
   $("s-mode").value = current.llm_mode;
   $("s-since").value = current.sync_since;
   $("s-track-sent").checked = !!current.track_sent;
+  $("s-ghost").value = current.ghost_after_days ?? 30;
   $("team-test-report").replaceChildren();
   render();
 }
@@ -140,6 +145,7 @@ async function save() {
       llm_mode: $("s-mode").value,
       sync_since: $("s-since").value,
       track_sent: $("s-track-sent").checked,
+      ghost_after_days: Number($("s-ghost").value || 0),
     },
     "PUT",
   );
@@ -157,6 +163,7 @@ function addModel(model) {
 export function setupSettings(onSave) {
   $("settings-button").addEventListener("click", async () => {
     $("settings-result").hidden = true;
+    tab = "general";
     try {
       await load();
       $("settings-dialog").showModal();
@@ -300,9 +307,13 @@ export function setupSettings(onSave) {
     ) {
       event.preventDefault();
       capture();
-      tab = tab === "connections" ? "team" : "connections";
+      const tabs = ["general", "connections", "team"];
+      tab =
+        tabs[
+          (tabs.indexOf(tab) + (event.key === "ArrowRight" ? 1 : 2)) % 3
+        ];
       render();
-      $(tab === "team" ? "team-tab" : "connections-tab").focus();
+      $(`${tab}-tab`).focus();
     }
   });
   $("settings-form").addEventListener("submit", async (event) => {

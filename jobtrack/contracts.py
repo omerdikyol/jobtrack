@@ -1,5 +1,7 @@
 """Validated HTTP request contracts, shared with the background job service."""
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -52,3 +54,22 @@ class SettingsUpdate(BaseModel):
     review_models: list[ReviewModel] | None = Field(default=None, max_length=5)
     review_strategy: str | None = None
     review_rounds: int | None = Field(default=None, ge=1, le=3)
+    ghost_after_days: int | None = Field(default=None, ge=0, le=365)
+    goals: list["Goal"] | None = Field(default=None, max_length=6)
+
+
+class Goal(BaseModel):
+    metric: Literal["applications", "replies", "assessments", "interviews", "offers"]
+    period: Literal["week", "month"]
+    target: int = Field(ge=1, le=1000)
+
+
+class NewApplication(BaseModel):
+    company: str = Field(min_length=1, max_length=200)
+    role: str | None = Field(default=None, max_length=300)
+    category: str = "employment"
+    applied_on: str | None = None
+    notes: str | None = Field(default=None, max_length=20000)
+
+
+SettingsUpdate.model_rebuild()

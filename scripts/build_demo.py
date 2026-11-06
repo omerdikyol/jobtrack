@@ -77,7 +77,10 @@ def main(out: Path) -> None:
         "/api/reviews",
     ]
     for category in ("employment", "freelance"):
-        paths += [f"/api/{p}?category={category}" for p in ("applications", "overview", "activity")]
+        paths += [
+            f"/api/{p}?category={category}"
+            for p in ("applications", "overview", "activity", "insights")
+        ]
         apps = client.get(f"/api/applications?category={category}").json()["applications"]
         paths += [f"/api/applications/{a['id']}" for a in apps]
 

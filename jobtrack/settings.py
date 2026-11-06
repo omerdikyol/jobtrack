@@ -29,6 +29,13 @@ SETTINGS_PATH = DATA_DIR / "settings.json"
 ENV_PATH = Path.cwd() / ".env"
 WRITE_LOCK = threading.RLock()
 
+# Read at call time, so tests can pin a neutral default.
+DEFAULT_GHOST_AFTER_DAYS = 30
+
+GOAL_METRICS = ("applications", "replies", "assessments", "interviews", "offers")
+GOAL_PERIODS = ("week", "month")
+MAX_GOALS = 6
+
 # Fields the settings form is allowed to write.
 EDITABLE_FIELDS = (
     "llm_provider",
@@ -37,6 +44,7 @@ EDITABLE_FIELDS = (
     "llm_mode",
     "sync_since",
     "track_sent",
+    "ghost_after_days",
 )
 
 
@@ -57,6 +65,11 @@ class Settings:
     review_models: list[dict[str, str]] = field(default_factory=list)
     review_strategy: str = "single"
     review_rounds: int = 2
+    # A submitted application with no reply for this many days reads as
+    # "No response". 0 turns it off.
+    ghost_after_days: int = field(default_factory=lambda: DEFAULT_GHOST_AFTER_DAYS)
+    # Your own targets: [{"metric": "applications", "period": "week", "target": 10}]
+    goals: list[dict] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, raw: dict) -> "Settings":
@@ -85,6 +98,10 @@ class Settings:
             else [],
             review_strategy=raw.get("review_strategy", "single"),
             review_rounds=raw.get("review_rounds", 2),
+            ghost_after_days=_count(
+                raw.get("ghost_after_days"), DEFAULT_GHOST_AFTER_DAYS
+            ),
+            goals=_goals(raw),
         )
 
     def to_dict(self) -> dict:
@@ -96,6 +113,31 @@ def _text(value: object) -> str | None:
         return None
     cleaned = value.strip()
     return cleaned or None
+
+
+def _goals(raw: dict) -> list[dict]:
+    goals = []
+    for goal in raw.get("goals") if isinstance(raw.get("goals"), list) else []:
+        if (
+            isinstance(goal, dict)
+            and goal.get("metric") in GOAL_METRICS
+            and goal.get("period") in GOAL_PERIODS
+            and _count(goal.get("target"), 0) > 0
+        ):
+            goals.append(
+                {"metric": goal["metric"], "period": goal["period"], "target": goal["target"]}
+            )
+    # The single weekly application goal of earlier versions becomes the first goal.
+    legacy = _count(raw.get("weekly_goal"), 0)
+    if not goals and legacy:
+        goals.append({"metric": "applications", "period": "week", "target": legacy})
+    return goals[:MAX_GOALS]
+
+
+def _count(value: object, default: int) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        return default
+    return value
 
 
 def mask(value: str | None) -> str | None:
