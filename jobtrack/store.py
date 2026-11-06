@@ -7,8 +7,9 @@ import os
 import re
 import sqlite3
 import unicodedata
+import uuid
 from dataclasses import replace
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from jobtrack.categories import CATEGORIES, identity_key, infer_category
@@ -184,7 +185,12 @@ def _application_from_row(row: sqlite3.Row, historical: bool = False) -> Applica
 class Store:
     """Thin wrapper around a SQLite database holding the job history."""
 
-    def __init__(self, path: str | Path):
+    def __init__(self, path: str | Path, ghost_after_days: int | None = None):
+        if ghost_after_days is None:
+            from jobtrack import settings
+
+            ghost_after_days = settings.load().ghost_after_days
+        self.ghost_after_days = ghost_after_days
         self.path = Path(path)
         if self.path.parent != Path(""):
             self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -653,11 +659,17 @@ class Store:
         first event came later are left out entirely.
         """
         if as_of is not None:
-            return [
-                a
-                for a in self._list_as_of(statuses, company, search, as_of)
-                if category is None or a.category == category
-            ]
+            return self._only(
+                self._ghost(
+                    [
+                        a
+                        for a in self._list_as_of(None, company, search, as_of)
+                        if category is None or a.category == category
+                    ],
+                    as_of,
+                ),
+                statuses,
+            )
 
         query = """
             SELECT a.*, COUNT(e.id) AS event_count
@@ -666,9 +678,6 @@ class Store:
         """
         clauses: list[str] = []
         params: list[object] = []
-        if statuses:
-            clauses.append(f"a.status IN ({','.join('?' * len(statuses))})")
-            params.extend(statuses)
         if company:
             clauses.append("a.company_key LIKE ?")
             params.append(f"%{normalize_company(company)}%")
@@ -683,7 +692,40 @@ class Store:
         query += " GROUP BY a.id ORDER BY a.last_event_at DESC"
 
         rows = self.conn.execute(query, params).fetchall()
-        return [_application_from_row(row) for row in rows]
+        return self._only(
+            self._ghost([_application_from_row(row) for row in rows]), statuses
+        )
+
+    def _ghost(
+        self, applications: list[Application], as_of: datetime | None = None
+    ) -> list[Application]:
+        """Read a submission with no reply for too long as "ghosted".
+
+        Derived on read and never stored, so a late reply or a changed
+        threshold takes effect at once, and a status you set yourself wins.
+        """
+        if not self.ghost_after_days:
+            return applications
+        cutoff = (as_of or datetime.now(timezone.utc)) - timedelta(
+            days=self.ghost_after_days
+        )
+        for application in applications:
+            if (
+                application.status == "applied"
+                and not application.status_override
+                and application.last_event_at < cutoff
+            ):
+                application.status = "ghosted"
+        return applications
+
+    @staticmethod
+    def _only(
+        applications: list[Application], statuses: list[str] | None
+    ) -> list[Application]:
+        if not statuses:
+            return applications
+        wanted = set(statuses)
+        return [a for a in applications if a.status in wanted]
 
     def _list_as_of(
         self,
@@ -732,7 +774,7 @@ class Store:
         if as_of is not None:
             for application in self._list_as_of(None, None, None, as_of):
                 if application.id == application_id:
-                    return application
+                    return self._ghost([application], as_of)[0]
             return None
 
         row = self.conn.execute(
@@ -747,7 +789,7 @@ class Store:
         ).fetchone()
         if not row:
             return None
-        return _application_from_row(row)
+        return self._ghost([_application_from_row(row)])[0]
 
     def find_application_by_name(self, needle: str) -> list[Application]:
         rows = self.conn.execute(
@@ -761,7 +803,7 @@ class Store:
             """,
             (f"%{normalize_company(needle)}%", f"%{needle.lower()}%"),
         ).fetchall()
-        return [_application_from_row(row) for row in rows]
+        return self._ghost([_application_from_row(row) for row in rows])
 
     def get_events(
         self, application_id: int, as_of: datetime | None = None
@@ -790,6 +832,7 @@ class Store:
                 matched=json.loads(r["matched"] or "[]"),
                 thread_id=r["thread_id"],
                 review=json.loads(r["review"]) if r["review"] else None,
+                details=json.loads(r["details"]) if r["details"] else None,
             )
             for r in rows
         ]
@@ -838,7 +881,7 @@ class Store:
     def status_counts(
         self, as_of: datetime | None = None, category: str | None = None
     ) -> dict[str, int]:
-        if as_of is not None or category:
+        if as_of is not None or category or self.ghost_after_days:
             counts: dict[str, int] = {}
             for application in self.list_applications(as_of=as_of, category=category):
                 counts[application.status] = counts.get(application.status, 0) + 1
@@ -931,6 +974,71 @@ class Store:
                     )
             self._refresh_application(application_id)
         return self.get_application(application_id)
+
+    def add_application(
+        self,
+        company: str,
+        role: str | None = None,
+        category: str = "employment",
+        applied_on: datetime | None = None,
+        notes: str = "",
+    ) -> int:
+        """Record an application that sent no email, such as one made on a
+        company's own careers page.
+
+        It gets one synthetic ``applied`` event, so later mail from the same
+        company joins it exactly as it would join an emailed confirmation.
+        Raises ``sqlite3.IntegrityError`` when the company and role exist.
+        """
+        company = (company or "").strip()
+        role = (role or "").strip() or None
+        if not normalize_company(company):
+            raise ValueError("Company must contain a name")
+        if category not in CATEGORIES:
+            raise ValueError("Unknown application category")
+        when = _to_iso(applied_on or datetime.now(timezone.utc))
+        with self.conn:
+            cursor = self.conn.execute(
+                """
+                INSERT INTO applications
+                    (company, company_key, role, role_key, status, first_seen,
+                     last_event_at, category, notes)
+                VALUES (?, ?, ?, ?, 'applied', ?, ?, ?, ?)
+                """,
+                (
+                    company,
+                    identity_key(normalize_company(company), category),
+                    role,
+                    normalize_role(role),
+                    when,
+                    when,
+                    category,
+                    notes or "",
+                ),
+            )
+            application_id = int(cursor.lastrowid)
+            self.conn.execute(
+                """
+                INSERT INTO events
+                    (application_id, message_id, kind, subject, sender,
+                     event_date, confidence, matched)
+                VALUES (?, ?, 'applied', 'Added manually', 'You', ?, 1.0, ?)
+                """,
+                (
+                    application_id,
+                    f"manual:{uuid.uuid4().hex}",
+                    when,
+                    json.dumps(["manual"]),
+                ),
+            )
+        return application_id
+
+    def set_event_details(self, message_id: str, details: dict | None) -> None:
+        with self.conn:
+            self.conn.execute(
+                "UPDATE events SET details = ? WHERE message_id = ?",
+                (None if details is None else json.dumps(details), message_id),
+            )
 
     def known_message_ids(self, analysis_key: str) -> set[str]:
         rows = self.conn.execute(

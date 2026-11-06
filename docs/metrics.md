@@ -18,13 +18,80 @@ response events. Multiple emails for the same application do not inflate the
 rate. Outreach and incomplete applications are excluded from this denominator.
 
 The volume chart counts applications by the week they were **first observed**,
-not the number of messages.
+not the number of messages. It scrolls back through the whole search (up to three years), shades the
+applications that got a reply, and opens a week's applications when selected.
+Overview tiles and pipeline stages open the applications behind them; on
+Insights, every bar, company, and tile does the same.
+
+Overview is about now: what is open and what needs you. Insights is about
+patterns across the search, so the two pages don't repeat each other; role
+categories live on Insights.
 
 ## On your radar
 
 Includes due follow-ups, interviews and assessments in progress, incomplete
 applications, and submitted applications with no update for at least 14 days.
 These are attention cues, not inferred interview dates or deadlines.
+
+Interview times and assessment deadlines read from the email come first, so
+the soonest thing you need to show up for is at the top.
+
+## No response
+
+A submitted application whose latest email is older than **No response after**
+(Workspace settings, default 30 days) reads as **No response**. This is derived
+when reading and is never stored: a late reply takes over at once, a status you
+set yourself always wins, and `0` turns it off. Historical snapshots measure the
+age from the selected date.
+
+## Insights
+
+The Insights page groups applications by company, and shows the funnel, where
+submitted applications ended up, reply times, reply rate by channel and role
+type, rejection reasons, and the last 26 weeks. **Hide company names** replaces
+employers with letters for printing or sharing, and **Markdown** downloads the
+same retrospective as `jobtrack report`.
+
+- **Reply time** counts from the first email jobtrack saw for the application
+  to its first assessment, interview, rejection, or offer. An application known
+  only from its reply has no starting point and is left out.
+- **Channel** is inferred from the first email: LinkedIn and job boards by
+  domain, other hiring platforms as *Applicant tracking system*, your own
+  applications as *Sent by you*, and everything else as *Company email*.
+- **Rejection reasons** come from the timeline first (after an interview or
+  assessment) and then from phrases in the rejection. A rejection within three
+  days of applying, without an earlier reply, counts as likely automated.
+- **Reapply cooldown**: a rejection under six months old is flagged in the
+  application details, in `jobtrack check`, and when adding an application.
+
+## Interview details
+
+When sync records an interview or assessment, the email body is searched for a
+date and time, a relative deadline ("within 72 hours"), the first meeting,
+scheduling, or test-platform link, and the format. English and Turkish dates are
+understood. Times have no time zone in most mail, so they are shown and exported
+as written; **Add to calendar** downloads an `.ics` file in local time. Run
+`jobtrack details` once to read mail synced before this existed.
+
+## Manual applications, drafts, and notifications
+
+**Add application** records one that sent no email. It gets a single *Added
+manually* event, and later mail from that company and role joins it.
+
+**Draft a follow-up** writes text to copy into your mail client; jobtrack still
+cannot send mail. With a model configured, only the company, role, status,
+contact name, and the dates, kinds, and subjects of the timeline are sent to it,
+never email bodies. Without one, or if it fails, a template is used.
+
+`jobtrack sync --notify` shows a desktop notification for new interviews,
+assessments, and offers. The scheduled daily sync passes it; reinstall the
+schedule with `jobtrack schedule install` to pick it up.
+
+**Goals** on the overview are your own targets: applications, replies,
+assessments, interviews, or offers, per week or month, up to six. Each
+application counts once per goal, at the moment it first got there; the streak
+is how many periods in a row met the target. Select a goal for what counted. Since your last visit, a banner lists
+what arrived.
 
 ## Historical snapshots
 

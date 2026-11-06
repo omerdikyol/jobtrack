@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 
 from jobtrack.categories import infer_category
 from jobtrack.classify import classify, outbound_application
+from jobtrack.details import extract_details
 from jobtrack.gmail_client import sent_query
 from jobtrack.models import Classification, EmailMessage
 from jobtrack.store import normalize_company, normalize_role
@@ -243,6 +244,10 @@ def run_sync(
                 summary.skipped += 1
                 continue
             outcome, _ = store.record(message, result, replace=recheck)
+            if outcome != "duplicate":
+                store.set_event_details(
+                    message_id, extract_details(message, result.kind)
+                )
             if outcome == "created":
                 summary.created += 1
             else:

@@ -6,6 +6,8 @@ import argparse
 import csv
 import io
 import json
+import shutil
+import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -184,6 +186,9 @@ def cmd_sync(args: argparse.Namespace) -> int:
     track_sent = bool(getattr(args, "track_sent", False) or saved.track_sent)
 
     with Store(args.db) as store:
+        newest_event = store.conn.execute(
+            "SELECT COALESCE(MAX(id), 0) FROM events"
+        ).fetchone()[0]
         with console.status("[dim]Scanning Gmail…[/dim]") as status_text:
             summary = run_sync(
                 store,
@@ -200,16 +205,205 @@ def cmd_sync(args: argparse.Namespace) -> int:
                 on_progress=on_progress,
                 on_candidate=on_candidate,
             )
+        # A recheck re-inserts old events with new ids; only a normal sync has news.
+        news = (
+            []
+            if args.dry_run or args.recheck
+            else _important_events(store, newest_event)
+        )
 
     if summary.llm_disabled_reason:
         err_console.print(
             f"[yellow]LLM switched off for this run:[/yellow] {summary.llm_disabled_reason}"
         )
 
+    if getattr(args, "notify", False) and news:
+        notify("jobtrack", _describe_news(news))
+
     if args.json:
         console.print_json(json.dumps(summary.to_dict()))
     else:
         print_sync_summary(console, summary.to_dict(), summary.applications)
+    return 0
+
+
+NOTIFY_KINDS = ("offer", "interview", "assessment")
+
+
+def _important_events(store, after_id: int) -> list[dict]:
+    return [
+        dict(row)
+        for row in store.conn.execute(
+            f"SELECT e.kind, a.company FROM events e JOIN applications a "
+            f"ON a.id = e.application_id WHERE e.id > ? AND e.kind IN "
+            f"({','.join('?' * len(NOTIFY_KINDS))}) ORDER BY e.event_date",
+            (after_id, *NOTIFY_KINDS),
+        )
+    ]
+
+
+def _describe_news(news: list[dict]) -> str:
+    words = {"offer": "Offer", "interview": "Interview invite", "assessment": "Assessment"}
+    parts = [f"{words[n['kind']]} from {n['company']}" for n in news[:3]]
+    if len(news) > 3:
+        parts.append(f"and {len(news) - 3} more")
+    return "; ".join(parts)
+
+
+def notify(title: str, message: str) -> bool:
+    """A desktop notification. Best effort: silence is better than a failed sync."""
+    try:
+        if sys.platform == "darwin":
+            script = (
+                f"display notification {json.dumps(message, ensure_ascii=False)} "
+                f"with title {json.dumps(title, ensure_ascii=False)}"
+            )
+            subprocess.run(["osascript", "-e", script], check=False, timeout=10)
+            return True
+        if shutil.which("notify-send"):
+            subprocess.run(["notify-send", title, message], check=False, timeout=10)
+            return True
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return False
+
+
+def cmd_add(args: argparse.Namespace) -> int:
+    import sqlite3
+
+    applied_on = None
+    if args.date:
+        try:
+            applied_on = datetime.combine(
+                parse_date(args.date), datetime.min.time()
+            ).replace(hour=12, tzinfo=timezone.utc)
+        except ValueError as exc:
+            err_console.print(f"[red]{exc}[/red]")
+            return 1
+    try:
+        with Store(args.db) as store:
+            application_id = store.add_application(
+                args.company, args.role, args.category, applied_on, args.notes or ""
+            )
+    except ValueError as exc:
+        err_console.print(f"[red]{exc}[/red]")
+        return 1
+    except sqlite3.IntegrityError:
+        err_console.print(
+            "[red]An application with this company and role already exists.[/red]"
+        )
+        return 1
+    console.print(f"[green]Added application {application_id}[/green]")
+    return 0
+
+
+def cmd_check(args: argparse.Namespace) -> int:
+    from jobtrack.insights import lookup
+
+    with Store(args.db) as store:
+        results = lookup(store, args.company)
+    if args.json:
+        console.print_json(json.dumps(results))
+        return 0
+    if not results:
+        console.print(f"No applications matching '{args.company}'.")
+        return 0
+    for result in results:
+        console.print(f"[bold]{result['company']}[/bold]")
+        for a in result["applications"]:
+            when = a["first_seen"][:10]
+            console.print(
+                f"  {a['id']:>4}  {a['role'] or 'Role not stated'} · "
+                f"{a['status_label']} · applied {when}"
+            )
+        if result["cooldown"]:
+            c = result["cooldown"]
+            console.print(
+                f"  [yellow]Rejected {c['rejected_days_ago']} days ago. Many companies "
+                f"ask you to wait six months, until {c['until']}.[/yellow]"
+            )
+    return 0
+
+
+def cmd_digest(args: argparse.Namespace) -> int:
+    from jobtrack.insights import digest
+
+    since = datetime.now(timezone.utc) - timedelta(days=args.days)
+    with Store(args.db) as store:
+        data = digest(store, since, getattr(args, "category", None))
+    if args.json:
+        console.print_json(json.dumps(data))
+        return 0
+    if not data["total"] and not data["upcoming"]:
+        console.print(f"Nothing new in the last {args.days} days.")
+        return 0
+    counts = ", ".join(
+        f"{n} {k}" for k, n in data["counts"].items()
+    ) or "no new mail"
+    console.print(f"[bold]Last {args.days} days:[/bold] {counts}")
+    for event in data["events"]:
+        console.print(
+            f"  {event['date'][:10]}  {event['label']:<12} {event['company']}"
+            f" · {event['role'] or 'Role not stated'}"
+        )
+    if data["upcoming"]:
+        console.print("[bold]Coming up[/bold]")
+        for item in data["upcoming"]:
+            what = "Interview" if item["kind"] == "interview" else "Assessment due"
+            console.print(f"  {item['at'].replace('T', ' ')}  {what} · {item['company']}")
+    return 0
+
+
+def cmd_report(args: argparse.Namespace) -> int:
+    from jobtrack.insights import insights, report_markdown
+
+    with Store(args.db) as store:
+        data = insights(store, category=getattr(args, "category", None))
+    text = report_markdown(data, anonymize=args.anonymize)
+    if args.output:
+        Path(args.output).expanduser().write_text(text, encoding="utf-8")
+        console.print(f"[green]Wrote[/green] {args.output}")
+    else:
+        console.print(text, end="", highlight=False, soft_wrap=True, markup=False)
+    return 0
+
+
+def cmd_details(args: argparse.Namespace) -> int:
+    """Read interview times and deadlines for mail synced before extraction existed."""
+    from jobtrack.details import DETAIL_KINDS, extract_details
+
+    with Store(args.db) as store:
+        rows = store.conn.execute(
+            f"SELECT message_id, kind FROM events WHERE details IS NULL AND "
+            f"message_id NOT LIKE 'manual:%' AND kind IN "
+            f"({','.join('?' * len(DETAIL_KINDS))})",
+            DETAIL_KINDS,
+        ).fetchall()
+        if not rows:
+            console.print("Every interview and assessment email has been read.")
+            return 0
+        try:
+            creds = get_credentials(
+                credentials_path=resolve_credentials(args.credentials),
+                token_path=TOKEN_PATH,
+                interactive=sys.stdin.isatty(),
+            )
+        except AuthError as exc:
+            err_console.print(f"[red]Not authenticated:[/red] {exc}")
+            return 2
+        client = GmailClient(creds)
+        found = 0
+        for row in rows:
+            try:
+                message = client.get_message(row["message_id"])
+            except Exception as exc:  # deleted mail, network: skip that one
+                err_console.print(f"[dim]Skipped {row['message_id']}: {exc}[/dim]")
+                continue
+            details = extract_details(message, row["kind"])
+            # An empty object marks the message as read, so it is not fetched again.
+            store.set_event_details(row["message_id"], details or {})
+            found += bool(details)
+    console.print(f"Read {len(rows)} email(s); found dates or links in {found}.")
     return 0
 
 
@@ -766,6 +960,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--dry-run", action="store_true", help="Show what would be recorded"
     )
     p_sync.add_argument("--json", action="store_true", help="Emit a JSON summary")
+    p_sync.add_argument(
+        "--notify",
+        action="store_true",
+        help="Show a desktop notification for new interviews, assessments, and offers",
+    )
     _add_llm_arguments(p_sync)
     p_sync.set_defaults(func=cmd_sync)
 
@@ -879,6 +1078,46 @@ def build_parser() -> argparse.ArgumentParser:
         help="Keep employment and freelance work separate",
     )
     p_export.set_defaults(func=cmd_export)
+
+    p_add = sub.add_parser(
+        "add", help="Record an application that sent no email"
+    )
+    p_add.add_argument("company")
+    p_add.add_argument("--role")
+    p_add.add_argument("--date", help="When you applied (default: today)")
+    p_add.add_argument("--notes")
+    p_add.add_argument(
+        "--category", choices=["employment", "freelance"], default="employment"
+    )
+    p_add.set_defaults(func=cmd_add)
+
+    p_check = sub.add_parser("check", help="Have I applied to this company before?")
+    p_check.add_argument("company")
+    p_check.add_argument("--json", action="store_true", help="Emit JSON")
+    p_check.set_defaults(func=cmd_check)
+
+    p_digest = sub.add_parser("digest", help="What changed recently, and what's next")
+    p_digest.add_argument("--days", type=int, default=7)
+    p_digest.add_argument("--category", choices=["employment", "freelance"])
+    p_digest.add_argument("--json", action="store_true", help="Emit JSON")
+    p_digest.set_defaults(func=cmd_digest)
+
+    p_report = sub.add_parser("report", help="Write a Markdown retrospective")
+    p_report.add_argument("--category", choices=["employment", "freelance"])
+    p_report.add_argument(
+        "--anonymize", action="store_true", help="Replace company names"
+    )
+    p_report.add_argument("-o", "--output", help="Write to a file instead of stdout")
+    p_report.set_defaults(func=cmd_report)
+
+    p_details = sub.add_parser(
+        "details",
+        help="Read interview times and deadlines from previously synced mail",
+    )
+    p_details.add_argument(
+        "--credentials", help="Path to the OAuth client secret JSON from Google Cloud"
+    )
+    p_details.set_defaults(func=cmd_details)
 
     p_reset = sub.add_parser("reset", help="Delete the local database")
     p_reset.add_argument("--yes", action="store_true", help="Confirm deletion")

@@ -19,6 +19,7 @@ STATUS_STYLES = {
     "applied": "blue",
     "outreach": "magenta",
     "incomplete": "bold yellow",
+    "ghosted": "dim",
 }
 
 KIND_STYLES = {
@@ -162,6 +163,7 @@ def print_stats(console: Console, counts: dict[str, int], total_events: int) -> 
         "applied",
         "outreach",
         "rejected",
+        "ghosted",
     ]
     total = 0
     for status in order:
