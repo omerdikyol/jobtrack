@@ -606,20 +606,19 @@
                 Full sync · recheck old emails
               </option></select
             ><span class="field-hint"
-              >Normal sync skips previously processed mail. Full sync rechecks
-              matching mail in the selected date range; use lookback 0 for all
-              time.</span
+              >Full sync rechecks mail already processed.</span
             ></label
-          ><label class="check"
-            ><input id="sync-track-sent" type="checkbox" /><span
-              >Also track applications you sent
-            </span></label
-          ><span class="field-hint"
-            >Records mail from your own address whose subject announces an
-            application, as the submission it is. Replies inside an existing
-            thread join that application. Personal contacts stay ignored.</span
           >
         </div>
+        <label class="check-row"
+          ><input id="sync-track-sent" type="checkbox" /><span
+            ><strong>Also track applications you sent</strong
+            ><small
+              >Mail from you whose subject announces an application, such as
+              “Application for…”. Personal mail stays ignored.</small
+            ></span
+          ></label
+        >
         <details class="advanced">
           <summary>Custom Gmail search</summary>
           <label
@@ -651,7 +650,7 @@
       <div class="modal-header">
         <div>
           <div class="eyebrow">configuration</div>
-          <h2 id="settings-title">Workspace settings.</h2>
+          <h2 id="settings-title">Workspace settings</h2>
         </div>
         <button
           class="button icon-button"
@@ -661,11 +660,17 @@
           <span data-icon="close"></span>
         </button>
       </div>
-      <p class="modal-description">
-        Connect your providers. Build a team that checks the evidence together.
-      </p>
       <form id="settings-form">
-        <div class="settings-tabs" role="tablist" aria-label="Model settings">
+        <div class="settings-tabs" role="tablist" aria-label="Settings">
+          <button
+            type="button"
+            role="tab"
+            id="general-tab"
+            aria-controls="general-panel"
+            data-settings-tab="general"
+          >
+            General
+          </button>
           <button
             type="button"
             role="tab"
@@ -685,53 +690,93 @@
             Review team <span id="team-count"></span>
           </button>
         </div>
-        <div id="settings-panel" role="tabpanel"></div>
-        <div class="settings-defaults">
-          <label
-            >When to use models<select id="s-mode">
-              <option value="auto">Automatic · uncertain mail</option>
-              <option value="off">Rules only</option>
-              <option value="fallback">Models for uncertain mail</option>
-              <option value="always">Models for every email</option>
-            </select></label
-          >
-          <label
-            >Default lookback<input id="s-since" placeholder="365" /><span
-              class="field-hint"
-              >Days, a duration such as 3m, or a date.</span
-            ></label
-          >
-          <label class="check"
-            ><input id="s-track-sent" type="checkbox" /><span
-              >Track applications you sent yourself
-            </span></label
-          ><span class="field-hint"
-            >Runs beside every sync unless a sync request turns it off. Mail
-            from your own address whose subject announces an application is
-            recorded as the submission it is; personal contacts are
-            ignored.</span
-          >
-          <div class="form-grid">
-            <label
-              >No response after (days)<input
-                id="s-ghost"
-                type="number"
-                min="0"
-                max="365"
-              /><span class="field-hint"
-                >Submitted applications with no reply for this long show as
-                “No response”. 0 turns it off.</span
-              ></label
-            >
+        <div class="settings-body">
+          <div id="general-panel" class="general-panel" role="tabpanel" aria-labelledby="general-tab">
+            <section class="settings-group">
+              <div class="settings-group-head">
+                <h3>Syncing</h3>
+                <p>What a normal Gmail sync looks at.</p>
+              </div>
+              <div class="settings-group-body">
+                <label
+                  >Default lookback<input id="s-since" placeholder="365" /><span
+                    class="field-hint"
+                    >Days, a duration such as 3m, or a date.</span
+                  ></label
+                >
+                <label class="check-row"
+                  ><input id="s-track-sent" type="checkbox" /><span
+                    ><strong>Track applications you sent yourself</strong
+                    ><small
+                      >Mail from you whose subject announces an application is
+                      recorded as one. Personal mail stays ignored.</small
+                    ></span
+                  ></label
+                >
+              </div>
+            </section>
+            <section class="settings-group">
+              <div class="settings-group-head">
+                <h3>Tracking</h3>
+                <p>How quiet applications and targets are shown.</p>
+              </div>
+              <div class="settings-group-body">
+                <label
+                  >“No response” after<span class="input-suffix"
+                    ><input id="s-ghost" type="number" min="0" max="365" /><span
+                      >days</span
+                    ></span
+                  ><span class="field-hint"
+                    >A submitted application with no reply for this long. 0
+                    turns it off.</span
+                  ></label
+                >
+                <div class="settings-inline">
+                  <div>
+                    <strong>Goals</strong>
+                    <small>Weekly or monthly targets on the overview.</small>
+                  </div>
+                  <button class="button" type="button" data-goals-open>
+                    Edit goals
+                  </button>
+                </div>
+              </div>
+            </section>
+            <section class="settings-group">
+              <div class="settings-group-head">
+                <h3>Models</h3>
+                <p>Optional. Rules work without any model.</p>
+              </div>
+              <div class="settings-group-body">
+                <label
+                  >When to use models<select id="s-mode">
+                    <option value="auto">Automatic · uncertain mail</option>
+                    <option value="off">Rules only</option>
+                    <option value="fallback">Models for uncertain mail</option>
+                    <option value="always">Models for every email</option>
+                  </select></label
+                >
+                <div class="settings-inline">
+                  <div>
+                    <strong>Providers and reviewers</strong>
+                    <small>Add API keys, then choose which models review mail.</small>
+                  </div>
+                  <button class="button" type="button" data-settings-tab="connections">
+                    Connections →
+                  </button>
+                </div>
+              </div>
+            </section>
           </div>
-        </div>
+          <div id="settings-panel" role="tabpanel" hidden></div>
         <div
           id="settings-result"
           class="form-result"
           role="status"
           hidden
         ></div>
-        <div id="team-test-report"></div>
+          <div id="team-test-report"></div>
+        </div>
         <div class="modal-footer">
           <button class="button" id="test-model" type="button">
             Save & test team <span data-icon="spark"></span>
