@@ -1029,6 +1029,25 @@ main {
   white-space: nowrap;
   border-bottom: 1px solid var(--line);
 }
+.sort-header {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  gap: 4px;
+}
+.sort-header:hover,
+th[aria-sort="ascending"] .sort-header,
+th[aria-sort="descending"] .sort-header {
+  color: var(--ink);
+}
+.sort-header:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+th.num .sort-header {
+  justify-content: flex-end;
+  width: 100%;
+}
 .application-table td {
   padding: 11px 13px;
   border-bottom: 1px solid var(--line);
@@ -1385,6 +1404,7 @@ form label {
 }
 form input:not([type="checkbox"]),
 form select,
+#merge-target,
 form textarea {
   display: block;
   width: 100%;
@@ -1616,6 +1636,11 @@ form textarea::placeholder {
   flex-wrap: wrap;
   padding: 16px 23px;
   border-top: 1px solid var(--line);
+}
+#merge-target {
+  width: auto;
+  max-width: 60%;
+  margin-top: 0;
 }
 .false-positive-section > span {
   font-size: 12px;
