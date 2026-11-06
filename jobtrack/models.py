@@ -65,6 +65,8 @@ STATUS_LABELS = {
     "interview": "Interviewing",
     "rejected": "Rejected",
     "offer": "Offer",
+    # Derived when reading, never stored: a submission that went quiet.
+    "ghosted": "No response",
 }
 
 # Statuses that still deserve attention, i.e. not a finished outcome.
@@ -187,10 +189,14 @@ class Event:
     matched: list[str] = field(default_factory=list)
     thread_id: str | None = None
     review: dict | None = None
+    # Interview time, assessment deadline, and links read from the body.
+    details: dict | None = None
 
     @property
     def source(self) -> str:
-        """Which engine produced this event — the local model or the rules."""
+        """Which engine produced this event — you, the local model, or the rules."""
+        if "manual" in self.matched:
+            return "manual"
         return "llm" if "llm" in self.matched else "rules"
 
     @property

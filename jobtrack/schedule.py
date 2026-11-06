@@ -71,6 +71,7 @@ class ScheduleSpec:
             "--no-auth",
             "--since",
             str(self.since),
+            "--notify",
         ]
 
     def command_line(self) -> str:

@@ -20,7 +20,6 @@ import re
 import tempfile
 import threading
 import unicodedata
-from collections import Counter
 from pathlib import Path
 
 UNSPECIFIED = "Role not stated"
@@ -569,17 +568,3 @@ def build_categorizer() -> RoleCategorizer:
     config.timeout = min(config.timeout or 20.0, 20.0)
     return RoleCategorizer(build_llm(config), cache)
 
-
-def summarize_roles(applications, categorizer: RoleCategorizer | None = None) -> list[dict]:
-    """Count applications per role category, most common first."""
-    if categorizer is None:
-        counts = Counter(role_category(a.role) for a in applications)
-    else:
-        labels = categorizer.map([a.role for a in applications])
-        counts = Counter(
-            labels.get(a.role) or role_category(a.role) for a in applications
-        )
-    return [
-        {"name": name, "count": count}
-        for name, count in sorted(counts.items(), key=lambda item: (-item[1], item[0]))
-    ]

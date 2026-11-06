@@ -15,6 +15,13 @@ the port can read your tracked applications.
 | `GET /api/applications` | Applications; `status`, `search`, `active`, `as_of` filters |
 | `GET /api/applications/{id}?as_of=DATE` | Application and email timeline, including Gmail URLs |
 | `PATCH /api/applications/{id}` | Partial company, role, notes, follow-up date, or status correction |
+| `POST /api/applications` | `{company, role, category, applied_on, notes}`: an application with no email |
+| `POST /api/applications/{id}/follow-up-draft?use_model=true` | Follow-up text to copy; template when no model is available |
+| `GET /api/events/{id}/calendar.ics` | Calendar file for an interview time or assessment deadline |
+| `GET /api/insights?as_of=DATE` | Funnel, outcomes, companies, reply times, channels, roles, rejections, trend |
+| `GET /api/report?anonymize=true` | The insights as a Markdown retrospective |
+| `GET /api/digest?since=ISO` | Events since a moment, and upcoming interviews and deadlines |
+| `GET /api/lookup?q=NAME` | Earlier applications at a company, and any reapply cooldown |
 | `GET /api/activity?limit=100&as_of=DATE` | Recent mail; maximum 200 events |
 | `GET /api/stats?as_of=DATE` | Status counts and last successful import |
 | `POST /api/sync` | `{since, before, limit, recheck, query, dry_run, track_sent}` |

@@ -9,11 +9,12 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 import os
 import sqlite3
 import threading
 import webbrowser
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Literal
 
@@ -21,6 +22,7 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
+from jobtrack import insights as insight
 from jobtrack import settings
 from jobtrack.analyze import MODES, build_analyzer
 from jobtrack.auth import AuthError, get_credentials
@@ -32,7 +34,13 @@ from jobtrack.config import (
     ensure_data_dir,
     resolve_credentials,
 )
-from jobtrack.contracts import ApplicationUpdate, SettingsUpdate, SyncRequest
+from jobtrack.contracts import (
+    ApplicationUpdate,
+    NewApplication,
+    SettingsUpdate,
+    SyncRequest,
+)
+from jobtrack.details import calendar_file
 from jobtrack.gmail_client import GmailClient
 from jobtrack.jobs import SyncRunner as BackgroundSync
 from jobtrack.llm import (
@@ -80,6 +88,11 @@ def _serialize_event(event: Event) -> dict:
         "source": event.source,
         "gmail_url": event.gmail_url,
         "review": event.review,
+        "details": event.details,
+        "calendar_url": f"/api/events/{event.id}/calendar.ics"
+        if event.details
+        and (event.details.get("when") or event.details.get("deadline"))
+        else None,
     }
 
 
@@ -146,6 +159,8 @@ def _settings_payload() -> dict:
         "llm_mode": stored.llm_mode or os.environ.get("JOBTRACK_LLM_MODE") or "auto",
         "sync_since": stored.sync_since or "",
         "track_sent": stored.track_sent,
+        "ghost_after_days": stored.ghost_after_days,
+        "goals": stored.goals,
         "effective": {
             "provider": effective.provider,
             "model": effective.model,
@@ -252,6 +267,38 @@ def create_app(
                 "as_of": parse_date(as_of).isoformat() if bound else None,
             }
 
+    @app.post("/api/applications", status_code=201)
+    def add_application(payload: NewApplication):
+        """An application that sent no email, such as one on a careers page."""
+        if payload.category not in ("employment", "freelance"):
+            raise HTTPException(status_code=400, detail="Unknown application category")
+        applied_on = None
+        if payload.applied_on:
+            try:
+                applied_on = datetime.combine(
+                    parse_date(payload.applied_on), datetime.min.time()
+                ).replace(hour=12, tzinfo=timezone.utc)
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+        try:
+            with Store(db) as store:
+                application_id = store.add_application(
+                    payload.company,
+                    payload.role,
+                    payload.category,
+                    applied_on,
+                    (payload.notes or "").strip(),
+                )
+                application = store.get_application(application_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except sqlite3.IntegrityError as exc:
+            raise HTTPException(
+                status_code=409,
+                detail="An application with this company and role already exists",
+            ) from exc
+        return {"application": _serialize_application(application)}
+
     @app.get("/api/export")
     def export_applications(
         category: Literal["employment", "freelance"],
@@ -329,11 +376,118 @@ def create_app(
             if application is None:
                 raise HTTPException(status_code=404, detail="No such application")
             events = store.get_events(app_id, as_of=bound)
+            history = (
+                insight.company_history(store, application) if bound is None else None
+            )
         return {
             "application": _serialize_application(application),
             "events": [_serialize_event(e) for e in events],
+            "contacts": insight.contacts(events),
+            "company_history": history,
             "as_of": parse_date(as_of).isoformat() if bound else None,
         }
+
+    @app.get("/api/events/{event_id}/calendar.ics")
+    def event_calendar(event_id: int):
+        with Store(db) as store:
+            row = store.conn.execute(
+                "SELECT e.id, e.kind, e.details, a.company, a.role FROM events e "
+                "JOIN applications a ON a.id = e.application_id WHERE e.id = ?",
+                (event_id,),
+            ).fetchone()
+        text = (
+            calendar_file(
+                row["id"], row["kind"], json.loads(row["details"]), row["company"], row["role"]
+            )
+            if row and row["details"]
+            else None
+        )
+        if text is None:
+            raise HTTPException(status_code=404, detail="No date found in this email")
+        return Response(
+            content=text,
+            media_type="text/calendar",
+            headers={
+                "Content-Disposition": f'attachment; filename="jobtrack-{event_id}.ics"'
+            },
+        )
+
+    @app.post("/api/applications/{app_id}/follow-up-draft")
+    def follow_up_draft(app_id: int, use_model: bool = True):
+        """Text to copy into your mail client. jobtrack can never send mail."""
+        with Store(db) as store:
+            application = store.get_application(app_id)
+            if application is None:
+                raise HTTPException(status_code=404, detail="No such application")
+            events = store.get_events(app_id)
+        llm = None
+        stored = settings.load()
+        mode = (
+            runner.llm_mode
+            or stored.llm_mode
+            or os.environ.get("JOBTRACK_LLM_MODE")
+            or "auto"
+        )
+        if use_model and mode != "off":
+            primary = stored.review_models[0] if stored.review_models else None
+            try:
+                llm = build_llm(
+                    LLMConfig.for_provider(primary["provider"], primary["model"])
+                    if primary
+                    else LLMConfig.load()
+                )
+            except LLMError:
+                llm = None
+        return insight.follow_up_draft(application, events, llm)
+
+    @app.get("/api/insights")
+    def workspace_insights(
+        as_of: str | None = None,
+        category: Literal["employment", "freelance"] | None = None,
+    ):
+        with Store(db) as store:
+            return insight.insights(
+                store, _resolve_as_of(as_of), category, categorizer=role_categorizer
+            )
+
+    @app.get("/api/report", response_class=Response)
+    def workspace_report(
+        category: Literal["employment", "freelance"] | None = None,
+        anonymize: bool = False,
+    ):
+        with Store(db) as store:
+            data = insight.insights(store, None, category, categorizer=role_categorizer)
+        return Response(
+            content=insight.report_markdown(data, anonymize=anonymize),
+            media_type="text/markdown",
+            headers={
+                "Content-Disposition": 'attachment; filename="jobtrack-retrospective.md"'
+            },
+        )
+
+    @app.get("/api/digest")
+    def workspace_digest(
+        since: str | None = None,
+        category: Literal["employment", "freelance"] | None = None,
+    ):
+        try:
+            moment = (
+                datetime.fromisoformat(since.replace("Z", "+00:00"))
+                if since
+                else datetime.now(timezone.utc) - timedelta(days=7)
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="Invalid since time") from exc
+        if moment.tzinfo is None:
+            moment = moment.replace(tzinfo=timezone.utc)
+        with Store(db) as store:
+            return insight.digest(store, moment, category)
+
+    @app.get("/api/lookup")
+    def lookup(q: str = Query(min_length=2, max_length=200)):
+        """Have I applied here before?"""
+        with Store(db) as store:
+            return {"query": q, "results": insight.lookup(store, q)}
 
     @app.patch("/api/applications/{app_id}")
     def update_application(app_id: int, payload: ApplicationUpdate):
@@ -476,10 +630,7 @@ def create_app(
         category: Literal["employment", "freelance"] | None = None,
     ):
         with Store(db) as store:
-            return overview(
-                store, _resolve_as_of(as_of), category=category,
-                categorizer=role_categorizer,
-            )
+            return overview(store, _resolve_as_of(as_of), category=category)
 
     @app.get("/api/activity")
     def activity(
@@ -642,6 +793,8 @@ def create_app(
                         status_code=400, detail="Choose single or consensus review"
                     )
                 stored.review_strategy = strategy
+            if "goals" in updates:
+                stored.goals = updates.pop("goals") or []
             if "review_rounds" in updates:
                 stored.review_rounds = updates.pop("review_rounds") or 2
             if (
@@ -659,6 +812,9 @@ def create_app(
                     if isinstance(getattr(stored, field), bool):
                         # A boolean must not be stringified and re-read as None.
                         setattr(stored, field, bool(value))
+                        continue
+                    if isinstance(getattr(stored, field), int):
+                        setattr(stored, field, int(value or 0))
                         continue
                     setattr(stored, field, (value or "").strip() or None)
 

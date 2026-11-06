@@ -125,6 +125,11 @@ jobtrack sync --track-sent --dry-run          # preview your own applications
 jobtrack list --active                        # what is still open
 jobtrack show 7                               # one application and its timeline
 jobtrack stats                                # stage counts and response rate
+jobtrack check acme                           # have I applied here before?
+jobtrack add "Acme" --role "SRE" --date 2026-10-01   # an application that sent no email
+jobtrack digest --days 7                      # what changed, and what's coming up
+jobtrack report --anonymize -o retro.md       # Markdown retrospective
+jobtrack details                              # read interview times from older mail
 jobtrack export --format csv -o applications.csv
 jobtrack serve --port 9000 --no-browser
 jobtrack schedule install --at 08:00          # daily import via launchd or cron
@@ -148,6 +153,7 @@ selects another database and `--json` renders machine-readable output.
 - [sync.py](jobtrack/sync.py) handles import ordering, duplicate detection, preview mode, and classification handoff.
 - [classify.py](jobtrack/classify.py) contains the offline relevance and lifecycle rules.
 - [store.py](jobtrack/store.py) persists applications and their email-event history.
+- [insights.py](jobtrack/insights.py) builds the Insights page, digest, lookup, contacts, and follow-up drafts; [details.py](jobtrack/details.py) reads interview times, deadlines, and meeting links.
 - [web.py](jobtrack/web.py) exposes the local workspace; [the web tests](tests/test_web.py) exercise timelines and API behavior.
 - [Classifier tests](tests/test_classify.py) use explicit email examples to check event labels and irrelevant-mail rejection.
 

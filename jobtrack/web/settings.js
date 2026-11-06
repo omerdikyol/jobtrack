@@ -101,6 +101,7 @@ async function load() {
   $("s-mode").value = current.llm_mode;
   $("s-since").value = current.sync_since;
   $("s-track-sent").checked = !!current.track_sent;
+  $("s-ghost").value = current.ghost_after_days ?? 30;
   $("team-test-report").replaceChildren();
   render();
 }
@@ -140,6 +141,7 @@ async function save() {
       llm_mode: $("s-mode").value,
       sync_since: $("s-since").value,
       track_sent: $("s-track-sent").checked,
+      ghost_after_days: Number($("s-ghost").value || 0),
     },
     "PUT",
   );
