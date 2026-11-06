@@ -13,6 +13,10 @@ each email timeline; and keep your next steps beside every opportunity.
 
 ![Overview](docs/screenshots/overview.png)
 
+**[Live demo](https://omerdikyol.github.io/jobtrack/)**: the real web UI with fictional
+applications from `scripts/seed_demo.py`. It is read-only and contains no data
+from a real inbox. Build it yourself with `python scripts/build_demo.py site`.
+
 The app runs on your own machine with Python, FastAPI, and SQLite. It asks Gmail
 for **one** permission — `gmail.readonly` — so it can never send, delete, or
 modify mail. Classification works from offline rules and is optionally assisted
