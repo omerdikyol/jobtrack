@@ -530,6 +530,24 @@ def create_app(
             raise HTTPException(status_code=404, detail="No such application")
         return {"ok": True, "ignored_messages": ignored}
 
+    @app.post("/api/applications/{app_id}/merge-into/{target_id}")
+    def merge_application(app_id: int, target_id: int):
+        with runner._lock:
+            if runner._state.get("status") == "running":
+                raise HTTPException(
+                    status_code=409,
+                    detail="Stop the running sync before changing an application.",
+                )
+            try:
+                with Store(db) as store:
+                    merged = store.merge_applications(app_id, target_id)
+                    application = store.get_application(target_id) if merged else None
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if application is None:
+            raise HTTPException(status_code=404, detail="No such application")
+        return {"application": _serialize_application(application)}
+
     @app.get("/api/false-positives")
     def false_positives():
         with Store(db) as store:

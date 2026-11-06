@@ -513,7 +513,10 @@ class Store:
                 )
 
             cls = self._company_from_text(msg, cls)
-            application_id = self._find_application(msg, cls)
+            # A manual merge outranks every automatic match.
+            application_id = self._merged_application(
+                msg.message_id
+            ) or self._find_application(msg, cls)
             if application_id is None and stale_app is not None:
                 original = self.get_application(stale_app)
                 same_company = (
@@ -1118,6 +1121,92 @@ class Store:
             "legacy": legacy,
             "count": len(marks) + len(legacy),
         }
+
+    def merge_applications(self, source_id: int, target_id: int) -> bool:
+        """Fold one application into another, for duplicates sync split apart.
+
+        The source's emails move to the target and stay pinned there through
+        ``application_merge_messages``, so a full recheck keeps them together.
+        The target keeps its own fields; empty ones are filled from the source.
+        Returns False when either application does not exist.
+        """
+        if source_id == target_id:
+            raise ValueError("An application cannot be merged into itself")
+        with self.conn:
+            self.conn.execute("BEGIN IMMEDIATE")
+            source = self.conn.execute(
+                "SELECT * FROM applications WHERE id = ?", (source_id,)
+            ).fetchone()
+            target = self.conn.execute(
+                "SELECT * FROM applications WHERE id = ?", (target_id,)
+            ).fetchone()
+            if source is None or target is None:
+                return False
+            moved = [
+                row[0]
+                for row in self.conn.execute(
+                    "SELECT message_id FROM events WHERE application_id = ?",
+                    (source_id,),
+                )
+            ]
+            self.conn.execute(
+                "UPDATE events SET application_id = ? WHERE application_id = ?",
+                (target_id, source_id),
+            )
+            self.conn.execute(
+                "UPDATE application_merge_messages SET application_id = ? "
+                "WHERE application_id = ?",
+                (target_id, source_id),
+            )
+            self.conn.executemany(
+                "INSERT OR REPLACE INTO application_merge_messages"
+                "(message_id, application_id) VALUES (?, ?)",
+                [(message_id, target_id) for message_id in moved],
+            )
+            fills = {
+                field: source[field]
+                for field in ("role", "notes", "follow_up_on", "status_override", "location")
+                if not target[field] and source[field]
+            }
+            if fills.get("role"):
+                fills["role_key"] = source["role_key"]
+            if target["notes"] and source["notes"]:
+                fills["notes"] = f"{target['notes']}\n\n{source['notes']}"
+            # Later mail under the source's company name should still find
+            # the merged application.
+            aliases = {
+                *self._company_aliases(target_id),
+                *self._company_aliases(source_id),
+                normalize_company(_fold_name(source["company"])),
+            }
+            aliases.discard(normalize_company(_fold_name(target["company"])))
+            self.conn.execute(
+                "DELETE FROM meta WHERE key = ?", (f"company_aliases:{source_id}",)
+            )
+            # Delete first: the source's role key may be what fills the target.
+            self.conn.execute("DELETE FROM applications WHERE id = ?", (source_id,))
+            if fills:
+                self.conn.execute(
+                    f"UPDATE applications SET {', '.join(f'{k} = ?' for k in fills)} "
+                    "WHERE id = ?",
+                    [*fills.values(), target_id],
+                )
+            if aliases:
+                self.conn.execute(
+                    "INSERT INTO meta (key,value) VALUES (?,?) "
+                    "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                    (f"company_aliases:{target_id}", json.dumps(sorted(aliases))),
+                )
+            self._refresh_application(target_id)
+        return True
+
+    def _merged_application(self, message_id: str) -> int | None:
+        row = self.conn.execute(
+            "SELECT m.application_id FROM application_merge_messages m "
+            "JOIN applications a ON a.id = m.application_id WHERE m.message_id = ?",
+            (message_id,),
+        ).fetchone()
+        return int(row[0]) if row else None
 
     def mark_false_positive(self, application_id: int) -> int | None:
         """Remove an application, saving enough history to restore it later.

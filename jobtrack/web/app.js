@@ -36,6 +36,7 @@ const state = {
   activityTab: "mail",
   insights: null,
   anonymize: false,
+  tableSort: {},
 };
 let refreshVersion = 0,
   activityVersion = 0,
@@ -268,6 +269,40 @@ function renderOverview() {
         "mail",
       );
 }
+// Click a column title to sort by it; click again to flip the direction.
+const stageRank = (status) => stages.indexOf(status);
+const sortColumns = {
+  applications: {
+    company: (a) => a.company.toLocaleLowerCase(),
+    stage: (a) => stageRank(a.status),
+    activity: (a) => a.last_event_at,
+    messages: (a) => a.event_count,
+    follow_up: (a) => a.follow_up_on || "",
+  },
+  companies: {
+    company: (c) => c.company.toLocaleLowerCase(),
+    applications: (c) => c.applications,
+    replies: (c) => c.responded,
+    stage: (c) => stageRank(c.best_stage),
+    reply_time: (c) => c.days_to_response ?? Infinity,
+    now: (c) => stageRank(c.status),
+  },
+};
+function sortHeader(table, key, label, cls = "") {
+  const current = state.tableSort[table];
+  const dir = current?.key === key ? current.dir : 0;
+  return `<th scope="col" class="${cls}" aria-sort="${dir > 0 ? "ascending" : dir < 0 ? "descending" : "none"}"><button class="sort-header" data-sort-table="${table}" data-sort-key="${key}">${label}<span aria-hidden="true">${dir > 0 ? "↑" : dir < 0 ? "↓" : ""}</span></button></th>`;
+}
+function tableSorted(table, rows) {
+  const sort = state.tableSort[table];
+  if (!sort) return rows;
+  const get = sortColumns[table][sort.key];
+  return [...rows].sort((a, b) => {
+    const x = get(a),
+      y = get(b);
+    return (x < y ? -1 : x > y ? 1 : 0) * sort.dir;
+  });
+}
 function filteredApplications() {
   const needle = state.search.toLocaleLowerCase();
   let apps = state.applications.filter(
@@ -288,7 +323,7 @@ function filteredApplications() {
           ? (a.follow_up_on || "9999").localeCompare(b.follow_up_on || "9999")
           : b.last_event_at.localeCompare(a.last_event_at),
   );
-  return apps;
+  return tableSorted("applications", apps);
 }
 function renderApplications() {
   const counts = state.overview?.statuses || {};
@@ -345,7 +380,7 @@ function renderApplications() {
     return;
   }
   $("application-content").innerHTML =
-    `<table class="application-table"><thead><tr><th scope="col">company & role</th><th scope="col">stage</th><th scope="col">last activity</th><th scope="col">messages</th><th scope="col">follow-up</th></tr></thead><tbody>${apps.map((a) => `<tr tabindex="0" data-app="${a.id}" aria-label="${e(a.company)}, ${e(a.role || "role not stated")}, ${e(labels[a.status])}"><td><div class="company-cell">${avatar(a.company)}<div><strong>${e(a.company)}</strong><small>${e(a.role || "Role not stated")}</small></div></div></td><td>${badge(a.status)}</td><td class="num">${e(relative(a.last_event_at, reference()))}<span class="date-caption">${e(fullDate(a.last_event_at))}</span></td><td class="num"><span class="message-count">${icon("mail")}${a.event_count}</span></td><td><span class="followup-date ${a.follow_up_on && a.follow_up_on <= new Date().toLocaleDateString("en-CA") ? "due" : ""}">${e(dateOnly(a.follow_up_on))}</span></td></tr>`).join("")}</tbody></table>`;
+    `<table class="application-table"><thead><tr>${sortHeader("applications", "company", "company & role")}${sortHeader("applications", "stage", "stage")}${sortHeader("applications", "activity", "last activity")}${sortHeader("applications", "messages", "messages")}${sortHeader("applications", "follow_up", "follow-up")}</tr></thead><tbody>${apps.map((a) => `<tr tabindex="0" data-app="${a.id}" aria-label="${e(a.company)}, ${e(a.role || "role not stated")}, ${e(labels[a.status])}"><td><div class="company-cell">${avatar(a.company)}<div><strong>${e(a.company)}</strong><small>${e(a.role || "Role not stated")}</small></div></div></td><td>${badge(a.status)}</td><td class="num">${e(relative(a.last_event_at, reference()))}<span class="date-caption">${e(fullDate(a.last_event_at))}</span></td><td class="num"><span class="message-count">${icon("mail")}${a.event_count}</span></td><td><span class="followup-date ${a.follow_up_on && a.follow_up_on <= new Date().toLocaleDateString("en-CA") ? "due" : ""}">${e(dateOnly(a.follow_up_on))}</span></td></tr>`).join("")}</tbody></table>`;
 }
 function detailsHTML(ev) {
   const d = ev.details;
@@ -385,7 +420,7 @@ async function openDetail(id) {
       .reverse()
       .find((ev) => ev.gmail_url)?.gmail_url;
     $("detail-content").innerHTML =
-      `<div class="detail-top"><span class="eyebrow">${a.category === "freelance" ? "freelance project" : "employment application"} · #${a.id}</span><button class="button icon-button" data-close="detail-dialog" aria-label="Close application details">${icon("close")}</button></div><div class="detail-head"><div class="detail-company">${avatar(a.company)}<div><h2 id="detail-title">${e(a.company)}</h2><p>${e(a.role || "Role not stated")}</p></div></div><div class="detail-head-meta">${badge(a.status)}<span>First seen ${e(fullDate(a.first_seen))}</span>${gmailLink(latestURL)}</div></div>${state.asOf ? `<div class="snapshot-detail">Email history as of ${e(dateOnly(state.asOf))}. Return to today to edit this application.</div>` : `<section class="detail-section"><details class="detail-edit"><summary>Notes & application details</summary><form id="application-edit"><div class="form-grid"><label>Company<input id="edit-company" value="${e(a.company)}" required maxlength="200"></label><label>Role<input id="edit-role" value="${e(a.role)}" maxlength="300" placeholder="Role not stated"></label></div><label>Work category<select id="edit-category"><option value="employment" ${a.category === "employment" ? "selected" : ""}>Employment</option><option value="freelance" ${a.category === "freelance" ? "selected" : ""}>Freelance</option></select></label><div class="form-grid"><label>Status correction<select id="edit-status"><option value="">Automatic · from email</option>${stages.map((k) => `<option value="${k}" ${a.status_override === k ? "selected" : ""}>${labels[k]}</option>`).join("")}</select></label><label>Follow-up date<input id="edit-followup" value="${e(a.follow_up_on)}" type="date"></label></div><label>Your notes<textarea id="edit-notes" aria-label="Your notes" maxlength="20000" placeholder="Contacts, interview notes, and next actions.">${e(a.notes)}</textarea></label><div id="edit-result" class="form-result" hidden role="status"></div><button class="button button-primary" type="submit">Save application ${icon("check")}</button></form></details>${a.notes ? `<div class="notes-preview">${e(a.notes)}</div>` : ""}${a.follow_up_on ? `<div class="follow-up-summary">${icon("calendar")}Follow up ${e(dateOnly(a.follow_up_on))}</div>` : ""}${a.status_override ? '<div class="follow-up-summary">Status corrected by you. Choose Automatic to use email history again.</div>' : ""}</section><section class="false-positive-section"><button class="button button-danger" id="mark-false-positive" type="button">Mark as not an application</button><span>Removes this application from the workspace. Its emails will stay ignored, but you can review and restore the mark later.</span></section>`}${historyHTML(a, history)}${contactsHTML(contacts)}${state.asOf || ["offer", "rejected"].includes(a.status) ? "" : `<section class="detail-section"><h3>Follow-up</h3><p class="section-hint">A draft to copy into your mail client. jobtrack can't send mail.</p><button class="button" id="draft-follow-up" type="button">${icon("mail")}Draft a follow-up</button><div id="draft-output"></div></section>`}<section class="detail-section"><h3>Email timeline <span class="count-bubble">${events.length}</span></h3><ol class="timeline">${[
+      `<div class="detail-top"><span class="eyebrow">${a.category === "freelance" ? "freelance project" : "employment application"} · #${a.id}</span><button class="button icon-button" data-close="detail-dialog" aria-label="Close application details">${icon("close")}</button></div><div class="detail-head"><div class="detail-company">${avatar(a.company)}<div><h2 id="detail-title">${e(a.company)}</h2><p>${e(a.role || "Role not stated")}</p></div></div><div class="detail-head-meta">${badge(a.status)}<span>First seen ${e(fullDate(a.first_seen))}</span>${gmailLink(latestURL)}</div></div>${state.asOf ? `<div class="snapshot-detail">Email history as of ${e(dateOnly(state.asOf))}. Return to today to edit this application.</div>` : `<section class="detail-section"><details class="detail-edit"><summary>Notes & application details</summary><form id="application-edit"><div class="form-grid"><label>Company<input id="edit-company" value="${e(a.company)}" required maxlength="200"></label><label>Role<input id="edit-role" value="${e(a.role)}" maxlength="300" placeholder="Role not stated"></label></div><label>Work category<select id="edit-category"><option value="employment" ${a.category === "employment" ? "selected" : ""}>Employment</option><option value="freelance" ${a.category === "freelance" ? "selected" : ""}>Freelance</option></select></label><div class="form-grid"><label>Status correction<select id="edit-status"><option value="">Automatic · from email</option>${stages.map((k) => `<option value="${k}" ${a.status_override === k ? "selected" : ""}>${labels[k]}</option>`).join("")}</select></label><label>Follow-up date<input id="edit-followup" value="${e(a.follow_up_on)}" type="date"></label></div><label>Your notes<textarea id="edit-notes" aria-label="Your notes" maxlength="20000" placeholder="Contacts, interview notes, and next actions.">${e(a.notes)}</textarea></label><div id="edit-result" class="form-result" hidden role="status"></div><button class="button button-primary" type="submit">Save application ${icon("check")}</button></form></details>${a.notes ? `<div class="notes-preview">${e(a.notes)}</div>` : ""}${a.follow_up_on ? `<div class="follow-up-summary">${icon("calendar")}Follow up ${e(dateOnly(a.follow_up_on))}</div>` : ""}${a.status_override ? '<div class="follow-up-summary">Status corrected by you. Choose Automatic to use email history again.</div>' : ""}</section><section class="false-positive-section"><button class="button button-danger" id="mark-false-positive" type="button">Mark as not an application</button><span>Removes this application from the workspace. Its emails will stay ignored, but you can review and restore the mark later.</span></section><section class="false-positive-section"><select id="merge-target" aria-label="Application to merge into"><option value="">Merge into…</option>${state.applications.filter((o) => o.id !== a.id).sort((x, y) => x.company.localeCompare(y.company)).map((o) => `<option value="${o.id}">${e(o.company)} · ${e(o.role || "Role not stated")}</option>`).join("")}</select><button class="button" id="merge-application" type="button">Merge</button><span>Moves this duplicate's emails into the chosen application and removes this one.</span></section>`}${historyHTML(a, history)}${contactsHTML(contacts)}${state.asOf || ["offer", "rejected"].includes(a.status) ? "" : `<section class="detail-section"><h3>Follow-up</h3><p class="section-hint">A draft to copy into your mail client. jobtrack can't send mail.</p><button class="button" id="draft-follow-up" type="button">${icon("mail")}Draft a follow-up</button><div id="draft-output"></div></section>`}<section class="detail-section"><h3>Email timeline <span class="count-bubble">${events.length}</span></h3><ol class="timeline">${[
         ...events,
       ]
         .reverse()
@@ -452,6 +487,23 @@ async function openDetail(id) {
         button.lastChild.textContent = "Draft a follow-up";
       }
       button.disabled = false;
+    });
+    $("merge-application")?.addEventListener("click", async (event) => {
+      const target = $("merge-target").value;
+      if (!target) return toast("Choose the application to merge into.");
+      const button = event.currentTarget;
+      button.disabled = true;
+      try {
+        await api(`/api/applications/${a.id}/merge-into/${target}`, {
+          method: "POST",
+        });
+        await refresh();
+        await openDetail(target);
+        toast("Applications merged.");
+      } catch (error) {
+        toast(error.message);
+        button.disabled = false;
+      }
     });
     $("mark-false-positive")?.addEventListener("click", async (event) => {
       const button = event.currentTarget;
@@ -885,8 +937,9 @@ function renderInsights() {
       list: { eyebrow: "funnel", title: f.label, description: `${f.count} of ${s.submitted} submitted applications (${f.rate}%).`, ids: f.ids },
     })),
   );
-  const shown = state.allCompanies ? d.companies : d.companies.slice(0, 10);
-  const companies = `<table class="application-table insight-table"><thead><tr><th scope="col">company</th><th scope="col" class="num">applications</th><th scope="col" class="num">replies</th><th scope="col">furthest stage</th><th scope="col" class="num">reply time</th><th scope="col">now</th></tr></thead><tbody>${shown
+  const sortedCompanies = tableSorted("companies", d.companies);
+  const shown = state.allCompanies ? sortedCompanies : sortedCompanies.slice(0, 10);
+  const companies = `<table class="application-table insight-table"><thead><tr>${sortHeader("companies", "company", "company")}${sortHeader("companies", "applications", "applications", "num")}${sortHeader("companies", "replies", "replies", "num")}${sortHeader("companies", "stage", "furthest stage")}${sortHeader("companies", "reply_time", "reply time", "num")}${sortHeader("companies", "now", "now")}</tr></thead><tbody>${shown
     .map(
       (c) =>
         `<tr tabindex="0" ${listButton({ eyebrow: "company", title: name(c.company), description: `${c.applications} application${c.applications === 1 ? "" : "s"} · ${c.responded} repl${c.responded === 1 ? "y" : "ies"}${c.best_stage_label ? ` · furthest stage: ${c.best_stage_label}` : ""}${c.days_to_response === null ? "" : ` · typical reply in ${c.days_to_response} days`}`, ids: c.application_ids })}><td><div class="company-cell">${state.anonymize ? "" : avatar(c.company)}<strong>${e(name(c.company))}</strong></div></td><td class="num">${c.applications}</td><td class="num">${c.responded}</td><td>${e(c.best_stage_label || "—")}</td><td class="num">${c.days_to_response === null ? "—" : `${c.days_to_response}d`}</td><td>${badge(c.status)}</td></tr>`,
@@ -1257,6 +1310,7 @@ $("search").addEventListener("input", () => {
 });
 $("sort").addEventListener("change", () => {
   state.sort = $("sort").value;
+  delete state.tableSort.applications;
   renderApplications();
 });
 ["list", "board"].forEach((view) => {
@@ -1411,3 +1465,16 @@ api("/api/health")
 api("/api/sync")
   .then((run) => showSync(run, true))
   .catch(() => {});
+
+document.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-sort-table]");
+  if (!button) return;
+  const { sortTable: table, sortKey: key } = button.dataset;
+  const current = state.tableSort[table];
+  state.tableSort[table] = {
+    key,
+    dir: current?.key === key ? -current.dir : 1,
+  };
+  if (table === "applications") renderApplications();
+  else renderInsights();
+});
