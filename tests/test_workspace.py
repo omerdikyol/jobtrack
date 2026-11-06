@@ -764,3 +764,27 @@ def test_full_sync_downloads_and_rechecks_ignored_and_recorded_mail(store):
     assert client.fetched == ["old-event", "old-ignored"]
     assert summary.scanned == 2 and summary.duplicate == 0
     assert store.has_message("old-ignored")
+
+
+def test_manual_merge_survives_recheck(store):
+    _, keep = event(store, company="BCG X", role="Forward Deployed AI Engineer")
+    _, dup = event(
+        store, message_id="m2", thread_id="t2", company="RE: BCG X", role=None,
+        kind="assessment", date=BASE + timedelta(days=1),
+    )
+    assert keep != dup
+    assert store.merge_applications(dup, keep)
+    [app] = store.list_applications()
+    assert app.id == keep and app.status == "assessment"
+    assert app.role == "Forward Deployed AI Engineer"
+    # A full recheck would split it again without the merge pin.
+    _, app_id = store.record(
+        make_message("Update", message_id="m2", thread_id="t2", date=BASE),
+        Classification("assessment", 12, company="RE: BCG X"),
+        replace=True,
+    )
+    assert app_id == keep
+    assert len(store.list_applications()) == 1
+    with pytest.raises(ValueError):
+        store.merge_applications(keep, keep)
+    assert not store.merge_applications(dup, keep)
