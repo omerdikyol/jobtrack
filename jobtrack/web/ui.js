@@ -43,6 +43,12 @@ const paths = {
   offer:
     '<path d="m12 3 2.8 5.7L21 9.6l-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9z"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  insights: '<path d="M4 20V10m6 10V4m6 16v-7m4 7H3"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  print:
+    '<path d="M7 9V3h10v6M7 17H4v-7h16v7h-3"/><rect x="7" y="14" width="10" height="7"/>',
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+  copy: '<rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V4a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h4"/>',
 };
 export const icon = (name) =>
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || paths.mail}</svg>`;
@@ -68,6 +74,7 @@ export const labels = {
   interview: "Interviewing",
   offer: "Offer",
   rejected: "Rejected",
+  ghosted: "No response",
 };
 const tones = {
   applied: ["#edf2f6", "#657f94", "#dfe8ee"],
@@ -77,9 +84,10 @@ const tones = {
   rejected: ["#f8eeeb", "#a68075", "#eeded8"],
   outreach: ["#f1eef6", "#9681aa", "#e4ddeb"],
   incomplete: ["#f5f2e9", "#9e967c", "#e9e2d3"],
+  ghosted: ["#f2f1ee", "#8a857c", "#e4e1db"],
 };
 export function badge(kind) {
-  kind = stages.includes(kind) ? kind : "applied";
+  kind = kind in tones ? kind : "applied";
   const [bg, ink, border] = tones[kind];
   return `<span class="badge" style="--badge-bg:${bg};--badge-ink:${ink};--badge-border:${border};--stage-color:var(--${kind})"><span class="status-dot"></span>${labels[kind]}</span>`;
 }

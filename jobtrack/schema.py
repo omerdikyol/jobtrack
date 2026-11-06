@@ -6,7 +6,7 @@ import sqlite3
 
 from jobtrack.categories import identity_key, infer_category
 
-VERSION = 6
+VERSION = 7
 
 
 def migrate(conn: sqlite3.Connection) -> None:
@@ -136,3 +136,10 @@ def migrate(conn: sqlite3.Connection) -> None:
         )
         if version < 6:
             conn.execute("PRAGMA user_version = 6")
+
+        if version < 7:
+            # Interview times, assessment deadlines, and meeting links.
+            columns = {row[1] for row in conn.execute("PRAGMA table_info(events)")}
+            if "details" not in columns:
+                conn.execute("ALTER TABLE events ADD COLUMN details TEXT")
+            conn.execute("PRAGMA user_version = 7")
