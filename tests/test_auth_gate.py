@@ -1,4 +1,5 @@
 import base64
+import secrets
 
 from fastapi.testclient import TestClient
 
@@ -6,13 +7,14 @@ from jobtrack.web import create_app
 
 
 def test_password_gate(monkeypatch, tmp_path):
-    monkeypatch.setenv("JOBTRACK_PASSWORD", "s3cret")
+    good = secrets.token_hex(8)
+    monkeypatch.setenv("JOBTRACK_PASSWORD", good)
     client = TestClient(create_app(tmp_path / "t.db"))
     assert client.get("/healthz").status_code == 200
     assert client.get("/api/applications").status_code == 401
     bad = {"Authorization": "Basic " + base64.b64encode(b"u:nope").decode()}
     assert client.get("/api/applications", headers=bad).status_code == 401
-    ok = {"Authorization": "Basic " + base64.b64encode(b"u:s3cret").decode()}
+    ok = {"Authorization": "Basic " + base64.b64encode(f"u:{good}".encode()).decode()}
     assert client.get("/api/applications", headers=ok).status_code == 200
 
 
