@@ -26,3 +26,4 @@ jobtrack.toml
 # Local agent/tooling notes about this user, not project source.
 /.commandcode/
 node_modules/
+_site/

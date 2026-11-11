@@ -24,10 +24,12 @@ jobs:
           python-version: "3.12"
       - run: pip install -e ".[dev]"
       # Fictional seed data only; see scripts/build_demo.py.
-      - run: python scripts/build_demo.py site
+      - run: python scripts/build_demo.py _site/demo
+      # landing/ is the project home page; the demo lives under /demo/.
+      - run: cp -R landing/. _site/
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: site
+          path: _site
 
   deploy:
     needs: build

@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>jobtrack: a job-search tracker built from your Gmail</title>
+  <meta name="description" content="jobtrack finds applications, assessments, interviews, offers and rejections in the recruiting mail you already have. Read-only, local, open source.">
+  <meta property="og:title" content="jobtrack: a job-search tracker built from your Gmail">
+  <meta property="og:description" content="Finds applications, interviews, offers and rejections in your inbox. Read-only Gmail access, stored on your machine, open source.">
+  <meta property="og:image" content="https://omerdikyol.github.io/jobtrack/og.png">
+  <meta property="og:url" content="https://omerdikyol.github.io/jobtrack/">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="nav">
+    <div class="wrap nav-row">
+      <a class="brand" href="#"><img src="favicon.svg" alt="" width="24" height="24">jobtrack</a>
+      <nav>
+        <a href="#features">Features</a>
+        <a href="#privacy">Privacy</a>
+        <a href="demo/">Live demo</a>
+        <a class="btn small" href="https://github.com/omerdikyol/jobtrack">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero wrap">
+      <h1>Your job search, <br class="wide">built from your inbox.</h1>
+      <p class="lead">jobtrack reads the recruiting mail you already received and turns it into applications,
+        timelines and next steps. No spreadsheet to keep up. Open source and local.</p>
+      <div class="actions">
+        <a class="btn" href="demo/">Try the live demo</a>
+        <a class="btn ghost" href="https://github.com/omerdikyol/jobtrack">View on GitHub</a>
+      </div>
+      <p class="install"><code>pipx install jobtrack</code><button class="copy" data-copy="pipx install jobtrack">Copy</button></p>
+      <p class="req">Python 3.10+ · macOS, Linux, Windows · Free, MIT license</p>
+    </section>
+
+    <section class="shot wrap">
+      <img src="overview.png" width="1600" height="1111" alt="jobtrack overview: application counts, response rate, pipeline and recent mail">
+      <p class="caption">The overview, with fictional demo data.</p>
+    </section>
+
+    <section id="features" class="wrap">
+      <h2>What it does</h2>
+      <div class="grid">
+        <article>
+          <h3>Finds every stage</h3>
+          <p>Applications, assessments, interviews, offers and rejections, grouped by company and role.</p>
+        </article>
+        <article>
+          <h3>One timeline per application</h3>
+          <p>Each email with its sender, date, the snippet that earned its label, and a link back to the Gmail thread.</p>
+        </article>
+        <article>
+          <h3>Next steps beside each role</h3>
+          <p>Notes, follow-up dates, interview times you can add to a calendar, and a list of what needs attention.</p>
+        </article>
+        <article>
+          <h3>Insights and goals</h3>
+          <p>Response rate, application volume by week, and your own weekly or monthly targets.</p>
+        </article>
+        <article>
+          <h3>Corrections that stick</h3>
+          <p>When the mail disagrees with the label, fix it once. Later syncs keep your correction.</p>
+        </article>
+        <article>
+          <h3>Web UI and command line</h3>
+          <p>Browse in the browser, or script it: <code>jobtrack list --active</code>, CSV export, weekly digest.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="wrap detail">
+      <div>
+        <h2>Open an application, see what happened.</h2>
+        <p>Every event shows how it was classified, so you can trust the label or correct it. Nothing is hidden behind a score.</p>
+      </div>
+      <img src="application-detail.png" width="1600" height="1222" loading="lazy" alt="An application with its email timeline and notes">
+    </section>
+
+    <section id="privacy" class="wrap privacy">
+      <h2>Read-only, and it stays with you.</h2>
+      <div class="grid three">
+        <article>
+          <h3>One narrow permission</h3>
+          <p>Gmail <code>gmail.readonly</code>. It can never send, delete or modify mail.</p>
+        </article>
+        <article>
+          <h3>Stored on your machine</h3>
+          <p>A local SQLite file. No account, no telemetry, no server run by the project.</p>
+        </article>
+        <article>
+          <h3>Your choice of model</h3>
+          <p>Offline rules by default. Optionally add a local model or your own key for a hosted one, in which case the email being classified is sent to that provider.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="wrap cta">
+      <h2>Install it in a minute.</h2>
+      <p class="install"><code>pipx install jobtrack</code><button class="copy" data-copy="pipx install jobtrack">Copy</button></p>
+      <p>Then <code>jobtrack auth</code> and <code>jobtrack serve</code>. The README walks through creating your own Google OAuth client, the one setup step.</p>
+      <div class="actions">
+        <a class="btn" href="https://github.com/omerdikyol/jobtrack#install">Read the setup guide</a>
+        <a class="btn ghost" href="https://pypi.org/project/jobtrack/">PyPI</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="wrap foot">
+    <span>jobtrack · MIT license</span>
+    <span><a href="https://github.com/omerdikyol/jobtrack/blob/main/SECURITY.md">Security</a> ·
+      <a href="https://github.com/omerdikyol/jobtrack/blob/main/PRIVACY.md">Privacy</a> ·
+      <a href="https://github.com/omerdikyol/jobtrack">GitHub</a></span>
+  </footer>
+
+  <script>
+    document.querySelectorAll("[data-copy]").forEach((b) => b.addEventListener("click", async () => {
+      try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = "Copied"; }
+      catch { b.textContent = "Select and copy"; }
+      setTimeout(() => (b.textContent = "Copy"), 1500);
+    }));
+  </script>
+</body>
+</html>
