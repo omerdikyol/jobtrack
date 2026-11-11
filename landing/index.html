@@ -3,104 +3,124 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>jobtrack: a job-search tracker built from your Gmail</title>
-  <meta name="description" content="jobtrack finds applications, assessments, interviews, offers and rejections in the recruiting mail you already have. Read-only, local, open source.">
-  <meta property="og:title" content="jobtrack: a job-search tracker built from your Gmail">
-  <meta property="og:description" content="Finds applications, interviews, offers and rejections in your inbox. Read-only Gmail access, stored on your machine, open source.">
+  <title>jobtrack: your job search, built from your inbox</title>
+  <meta name="description" content="jobtrack reads the recruiting mail you already have and sorts it into applications, interviews, offers and rejections. Read-only Gmail, stored on your machine, open source.">
+  <meta property="og:title" content="jobtrack: your job search, built from your inbox">
+  <meta property="og:description" content="Mail in, pipeline out. Read-only Gmail access, stored on your machine, open source.">
   <meta property="og:image" content="https://omerdikyol.github.io/jobtrack/og.png">
   <meta property="og:url" content="https://omerdikyol.github.io/jobtrack/">
   <meta name="twitter:card" content="summary_large_image">
+  <meta name="color-scheme" content="dark">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="style.css">
+  <script>document.documentElement.classList.add("js");</script>
 </head>
 <body>
   <header class="nav">
     <div class="wrap nav-row">
       <a class="brand" href="#"><img src="favicon.svg" alt="" width="24" height="24">jobtrack</a>
       <nav>
+        <a href="#demo-section">Demo</a>
         <a href="#features">Features</a>
         <a href="#privacy">Privacy</a>
-        <a href="demo/">Live demo</a>
+        <a href="demo/">Full demo</a>
         <a class="btn small" href="https://github.com/omerdikyol/jobtrack">GitHub</a>
       </nav>
     </div>
   </header>
 
   <main>
-    <section class="hero wrap">
-      <h1>Your job search, <br class="wide">built from your inbox.</h1>
-      <p class="lead">jobtrack reads the recruiting mail you already received and turns it into applications,
-        timelines and next steps. No spreadsheet to keep up. Open source and local.</p>
-      <div class="actions">
-        <a class="btn" href="demo/">Try the live demo</a>
-        <a class="btn ghost" href="https://github.com/omerdikyol/jobtrack">View on GitHub</a>
+    <section class="hero-band">
+      <canvas id="mailstream" aria-hidden="true"></canvas>
+      <div class="hero wrap">
+        <h1>Your job search,<br class="wide"> built from your inbox.</h1>
+        <p class="lead">jobtrack reads the recruiting mail you already received, postmarks every message with its stage, and keeps the pipeline for you. No spreadsheet to feed.</p>
+        <div class="actions">
+          <a class="btn" href="#demo-section">Watch it work</a>
+          <a class="btn ghost" href="https://github.com/omerdikyol/jobtrack">View on GitHub</a>
+        </div>
+        <p class="install"><code>pipx install jobtrack</code><button class="copy" data-copy="pipx install jobtrack">Copy</button></p>
+        <p class="req">Python 3.10 or newer on macOS, Linux and Windows. Free, MIT license.</p>
       </div>
-      <p class="install"><code>pipx install jobtrack</code><button class="copy" data-copy="pipx install jobtrack">Copy</button></p>
-      <p class="req">Python 3.10+ · macOS, Linux, Windows · Free, MIT license</p>
     </section>
 
-    <section class="shot wrap">
-      <img src="overview.png" width="1600" height="1111" alt="jobtrack overview: application counts, response rate, pipeline and recent mail">
-      <p class="caption">The overview, with fictional demo data.</p>
+    <section class="stage wrap reveal" id="demo-section" aria-label="Live demo">
+      <div class="app" id="demo">
+        <div class="app-bar">
+          <span class="dots"><i></i><i></i><i></i></span>
+          <span class="app-title"><img src="favicon.svg" alt="" width="16" height="16">jobtrack</span>
+          <span class="sync-state" id="sync-state">Idle</span>
+          <button class="sync-btn" id="sync-btn" type="button">Sync Gmail</button>
+        </div>
+        <div class="app-body">
+          <div class="inbox">
+            <div class="pane-h">Inbox <small id="scanned">0 scanned</small></div>
+            <ul id="inbox"></ul>
+          </div>
+          <div class="board">
+            <div class="tiles">
+              <div class="tile"><b id="t-apps">0</b><span>Applications</span></div>
+              <div class="tile"><b id="t-int">0</b><span>Interviewing</span></div>
+              <div class="tile"><b id="t-off">0</b><span>Offers</span></div>
+              <div class="tile"><b id="t-rate">0<i>%</i></b><span>Response rate</span></div>
+            </div>
+            <div class="seg" id="seg" aria-hidden="true"><span class="s-applied"></span><span class="s-assessment"></span><span class="s-interview"></span><span class="s-offer"></span><span class="s-rejected"></span></div>
+            <ul class="legend" aria-hidden="true">
+              <li class="s-applied">Applied <b id="l-applied">0</b></li>
+              <li class="s-assessment">Assessment <b id="l-assessment">0</b></li>
+              <li class="s-interview">Interviewing <b id="l-interview">0</b></li>
+              <li class="s-offer">Offer <b id="l-offer">0</b></li>
+              <li class="s-rejected">Rejected <b id="l-rejected">0</b></li>
+            </ul>
+            <div class="lower">
+              <ul class="rows" id="rows"></ul>
+              <div class="tl"><div class="pane-h" id="tl-title">Timeline</div><ol id="tl"></ol></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="caption">A scripted replay with invented companies. Hover to pause, click an application to open its timeline.</p>
     </section>
 
     <section id="features" class="wrap">
-      <h2>What it does</h2>
-      <div class="grid">
-        <article>
-          <h3>Finds every stage</h3>
-          <p>Applications, assessments, interviews, offers and rejections, grouped by company and role.</p>
-        </article>
-        <article>
-          <h3>One timeline per application</h3>
-          <p>Each email with its sender, date, the snippet that earned its label, and a link back to the Gmail thread.</p>
-        </article>
-        <article>
-          <h3>Next steps beside each role</h3>
-          <p>Notes, follow-up dates, interview times you can add to a calendar, and a list of what needs attention.</p>
-        </article>
-        <article>
-          <h3>Insights and goals</h3>
-          <p>Response rate, application volume by week, and your own weekly or monthly targets.</p>
-        </article>
-        <article>
-          <h3>Corrections that stick</h3>
-          <p>When the mail disagrees with the label, fix it once. Later syncs keep your correction.</p>
-        </article>
-        <article>
-          <h3>Web UI and command line</h3>
-          <p>Browse in the browser, or script it: <code>jobtrack list --active</code>, CSV export, weekly digest.</p>
-        </article>
-      </div>
+      <div class="head reveal"><h2>Everything the inbox already knows.</h2><p>jobtrack reads mail you already have. There is nothing to forward, tag or retype.</p></div>
+      <dl class="facts reveal">
+        <div><dt>Finds every stage</dt><dd>Applications, assessments, interviews, offers and rejections, grouped by company and role.</dd></div>
+        <div><dt>One timeline per application</dt><dd>Each email with its sender, date and the snippet that earned its label, plus a link back to the Gmail thread.</dd></div>
+        <div><dt>Next steps beside each role</dt><dd>Notes, follow-up dates, interview times you can add to a calendar, and a list of what needs attention.</dd></div>
+        <div><dt>Insights and goals</dt><dd>Response rate, application volume by week, and your own weekly or monthly targets.</dd></div>
+        <div><dt>Corrections that stick</dt><dd>When the mail disagrees with the label, fix it once. Later syncs keep your correction.</dd></div>
+        <div><dt>Web UI and command line</dt><dd>Browse in the browser, or script it with <code>jobtrack list --active</code>, CSV export and a weekly digest.</dd></div>
+      </dl>
     </section>
 
-    <section class="wrap detail">
-      <div>
-        <h2>Open an application, see what happened.</h2>
-        <p>Every event shows how it was classified, so you can trust the label or correct it. Nothing is hidden behind a score.</p>
+    <section class="wrap real">
+      <div class="head reveal"><h2>The same interface, running on your machine.</h2></div>
+      <div class="tabs reveal" role="tablist">
+        <button role="tab" aria-selected="true" data-shot="overview.png" data-w="1600" data-h="1111">Overview</button>
+        <button role="tab" aria-selected="false" data-shot="applications.png" data-w="1600" data-h="1111">Applications</button>
+        <button role="tab" aria-selected="false" data-shot="application-detail.png" data-w="1600" data-h="1222">Application detail</button>
       </div>
-      <img src="application-detail.png" width="1600" height="1222" loading="lazy" alt="An application with its email timeline and notes">
+      <div class="shotwrap reveal"><img id="shot" src="overview.png" width="1600" height="1111" alt="jobtrack interface with fictional demo data"></div>
+      <p class="caption">Fictional demo data. <a href="demo/">Open the interactive demo</a></p>
     </section>
 
     <section id="privacy" class="wrap privacy">
-      <h2>Read-only, and it stays with you.</h2>
-      <div class="grid three">
-        <article>
-          <h3>One narrow permission</h3>
-          <p>Gmail <code>gmail.readonly</code>. It can never send, delete or modify mail.</p>
-        </article>
-        <article>
-          <h3>Stored on your machine</h3>
-          <p>A local SQLite file. No account, no telemetry, no server run by the project.</p>
-        </article>
-        <article>
-          <h3>Your choice of model</h3>
-          <p>Offline rules by default. Optionally add a local model or your own key for a hosted one, in which case the email being classified is sent to that provider.</p>
-        </article>
+      <div class="head reveal"><h2>It can read your mail. It cannot touch it.</h2></div>
+      <div class="flow reveal">
+        <div class="node gmail"><b>Gmail</b><span>your inbox</span></div>
+        <svg class="wire" viewBox="0 0 300 40" preserveAspectRatio="none" aria-hidden="true"><path d="M0 20 H300" class="rail"/><path d="M0 20 H300" class="dash"/></svg>
+        <div class="node mine"><b>Your machine</b><span>SQLite file, no server</span></div>
       </div>
+      <div class="denied reveal"><span>send</span><span>delete</span><span>modify</span><em>Scope: gmail.readonly</em></div>
+      <dl class="facts reveal">
+        <div><dt>One narrow permission</dt><dd>Read-only Gmail. It can never send, delete or modify mail.</dd></div>
+        <div><dt>Stored on your machine</dt><dd>A local SQLite file. No account, no telemetry, no server run by the project.</dd></div>
+        <div><dt>Your choice of model</dt><dd>Offline rules by default. Optionally add a local model or your own key; with a hosted provider, the email being classified is sent to it.</dd></div>
+      </dl>
     </section>
 
-    <section class="wrap cta">
+    <section class="wrap cta reveal">
       <h2>Install it in a minute.</h2>
       <p class="install"><code>pipx install jobtrack</code><button class="copy" data-copy="pipx install jobtrack">Copy</button></p>
       <p>Then <code>jobtrack auth</code> and <code>jobtrack serve</code>. The README walks through creating your own Google OAuth client, the one setup step.</p>
@@ -113,17 +133,13 @@
 
   <footer class="wrap foot">
     <span>jobtrack · MIT license</span>
-    <span><a href="https://github.com/omerdikyol/jobtrack/blob/main/SECURITY.md">Security</a> ·
-      <a href="https://github.com/omerdikyol/jobtrack/blob/main/PRIVACY.md">Privacy</a> ·
+    <span class="foot-links"><a href="https://github.com/omerdikyol/jobtrack/blob/main/SECURITY.md">Security</a>
+      <a href="https://github.com/omerdikyol/jobtrack/blob/main/PRIVACY.md">Privacy</a>
       <a href="https://github.com/omerdikyol/jobtrack">GitHub</a></span>
   </footer>
 
-  <script>
-    document.querySelectorAll("[data-copy]").forEach((b) => b.addEventListener("click", async () => {
-      try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = "Copied"; }
-      catch { b.textContent = "Select and copy"; }
-      setTimeout(() => (b.textContent = "Copy"), 1500);
-    }));
-  </script>
+  <script src="hero.js"></script>
+  <script src="demo.js"></script>
+  <script src="page.js"></script>
 </body>
 </html>
