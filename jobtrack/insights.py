@@ -20,7 +20,7 @@ from jobtrack.roles import role_category
 from jobtrack.store import _from_iso, _to_iso, normalize_company
 
 RESPONSE_KINDS = {"assessment", "interview", "rejected", "offer"}
-SUBMITTED_KINDS = RESPONSE_KINDS | {"applied"}
+SUBMITTED_KINDS = RESPONSE_KINDS | {"applied", "viewed"}
 QUICK_REJECTION_DAYS = 3
 COOLDOWN_DAYS = 182  # many employers ask you to wait six months to reapply
 

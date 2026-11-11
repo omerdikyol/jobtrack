@@ -244,6 +244,10 @@ def run_sync(
                 summary.skipped += 1
                 continue
             outcome, _ = store.record(message, result, replace=recheck)
+            if outcome == "ignored":
+                summary.skipped += 1
+                known.add(message_id)
+                continue
             if outcome != "duplicate":
                 store.set_event_details(
                     message_id, extract_details(message, result.kind)

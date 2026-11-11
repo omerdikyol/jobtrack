@@ -551,12 +551,9 @@ def test_turkish_rejection_and_view_update_keep_the_applied_title():
         "Başvurunuz görüntülendi\nAcme şirketindeki işe alım takımı tarafından fark edildiniz\nYazılım Mühendisi\nAcme · Türkiye\nSizin için önerilen benzer iş ilanları\nBackend Developer",
         sender="LinkedIn <jobs-noreply@linkedin.com>",
     )
+    # "Viewed" is not a new application; it must not add an applied event.
     result = classify(viewed)
-    assert (result.kind, result.company, result.role) == (
-        "applied",
-        "Acme",
-        "Yazılım Mühendisi",
-    )
+    assert (result.kind, result.company) == ("viewed", "Acme")
 
 
 def test_invisible_padding_is_removed_without_dropping_joiners_or_accents():
@@ -741,3 +738,28 @@ def test_linkedin_keyword_free_title_english_standalone():
         "Acme",
         "Associate II",
     )
+
+
+def test_viewed_mail_attaches_but_never_creates_or_changes_status(tmp_path):
+    from jobtrack.classify import classify
+
+    viewed = make_message(
+        "Başvurunuz Ironstone tarafından görüntülendi",
+        "",
+        sender="LinkedIn <jobs-noreply@linkedin.com>",
+        message_id="v",
+    )
+    cls = classify(viewed)
+    assert (cls.kind, cls.company) == ("viewed", "Ironstone")
+    with Store(tmp_path / "v.db") as db:
+        assert db.record(viewed, cls) == ("ignored", None)
+        sent = make_message(
+            "Deniz, başvurunuz Ironstone şirketine gönderildi",
+            "",
+            sender="LinkedIn <jobs-noreply@linkedin.com>",
+            message_id="a",
+        )
+        _, app_id = db.record(sent, classify(sent))
+        db.record(viewed, cls)
+        assert db.get_application(app_id).status == "applied"
+        assert len(db.get_events(app_id)) == 2

@@ -67,6 +67,7 @@ export const stages = [
   "rejected",
 ];
 export const labels = {
+  viewed: "Viewed",
   incomplete: "Incomplete",
   outreach: "Outreach",
   applied: "Applied",
@@ -77,6 +78,7 @@ export const labels = {
   ghosted: "No response",
 };
 const tones = {
+  viewed: ["#f2f1ee", "#8a857c", "#e4e1db"],
   applied: ["#edf2f6", "#657f94", "#dfe8ee"],
   assessment: ["#faf3e6", "#a08043", "#eee0c5"],
   interview: ["#eaf3ed", "#527d65", "#d8e8dc"],

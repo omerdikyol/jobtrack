@@ -6,6 +6,7 @@ import argparse
 import csv
 import io
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -451,11 +452,17 @@ def cmd_serve(args: argparse.Namespace) -> int:
 
     ensure_data_dir()
 
-    if args.host not in ("127.0.0.1", "localhost", "::1") and not args.allow_remote:
+    gated = bool(os.environ.get("JOBTRACK_PASSWORD"))
+    if (
+        args.host not in ("127.0.0.1", "localhost", "::1")
+        and not args.allow_remote
+        and not gated
+    ):
         err_console.print(
             f"[yellow]Refusing to bind {args.host}.[/yellow] The UI serves your email "
             "data with no authentication, so exposing it on the network must be "
-            "deliberate. Pass [bold]--allow-remote[/bold] if you really mean it."
+            "deliberate. Set [bold]JOBTRACK_PASSWORD[/bold] (recommended) or pass "
+            "[bold]--allow-remote[/bold] if you really mean it."
         )
         return 1
 

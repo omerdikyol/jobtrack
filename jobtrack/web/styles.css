@@ -1,4 +1,4 @@
-/* Jobtrack workspace, in the look of the site home page (plain): system
+/* Jobtrack workspace, plain look: system
    sans with tabular figures so numbers line up, lower-case labels, plain
    cards, and one amber accent that marks only what is selected. Nothing is
    fetched from a font CDN. */
@@ -26,6 +26,7 @@
   --rejected: #c23f2e;
   --outreach: #8268b8;
   --incomplete: #9b958b;
+  --viewed: #9b958b;
   --ghosted: #b5afa4;
   --role-0: var(--accent);
   --role-1: var(--applied);
@@ -63,6 +64,7 @@
   --rejected: #e5705f;
   --outreach: #b399dc;
   --incomplete: #a29c91;
+  --viewed: #a29c91;
   --ghosted: #6e6960;
 }
 * {
