@@ -38,6 +38,14 @@ section { padding: 88px 0; position: relative; }
 .btn { display: inline-flex; align-items: center; height: 42px; padding: 0 20px; border-radius: 9px; background: var(--accent); color: var(--accent-ink); font-weight: 650; font-size: .95rem; transition: transform .15s, box-shadow .15s; }
 .btn:hover { transform: translateY(-1px); background: #ecb558; }
 .btn.small { height: 32px; padding: 0 13px; font-size: .88rem; border-radius: 7px; }
+.ic { width: 16px; height: 16px; flex: none; }
+.gh-pill { display: inline-flex; align-items: center; height: 32px; border: 1px solid var(--line-2); border-radius: 7px; color: var(--ink); font-size: .88rem; transition: background .15s; }
+.gh-pill:hover { background: var(--surface); }
+.gh-pill > .ic { margin: 0 7px 0 10px; }
+.gh-name { padding-right: 10px; }
+.gh-stars { display: inline-flex; align-items: center; gap: 5px; height: 100%; padding: 0 10px; border-left: 1px solid var(--line-2); color: var(--muted); }
+.gh-stars .ic { width: 14px; height: 14px; color: var(--accent); }
+.gh-stars b { font-weight: 500; font-variant-numeric: tabular-nums; }
 .btn.ghost { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1px var(--line-2); }
 .btn.ghost:hover { background: var(--surface); box-shadow: inset 0 0 0 1px var(--line-2); }
 .actions { display: flex; gap: 12px; flex-wrap: wrap; }
@@ -149,7 +157,9 @@ section { padding: 88px 0; position: relative; }
   .app-body { grid-template-columns: 1fr; } .inbox { border-right: 0; border-bottom: 1px solid var(--line); max-height: 230px; }
   .lower { grid-template-columns: 1fr; } .tiles { grid-template-columns: repeat(2, 1fr); }
   .facts { grid-template-columns: 1fr; }
-  .nav nav a:not(.btn) { display: none; }
+  .nav nav a:not(.btn):not(.gh-pill) { display: none; }
+  .gh-name { display: none; }
+  .gh-pill > .ic { margin-right: 10px; }
   .wide { display: none; }
   #mailstream { inset: auto 0 0 0; height: 220px; -webkit-mask-image: none; mask-image: none; }
   .hero { padding: 56px 0 250px; } .flow { flex-direction: column; } .wire { width: 40px; height: 60px; transform: rotate(90deg); }

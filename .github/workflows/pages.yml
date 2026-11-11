@@ -3,6 +3,8 @@ name: Deploy demo to GitHub Pages
 on:
   push:
     branches: [main]
+  schedule:
+    - cron: "17 6 * * *"   # daily, so the star count in the header stays current
   workflow_dispatch:
 
 permissions:
@@ -27,6 +29,16 @@ jobs:
       - run: python scripts/build_demo.py _site/demo
       # landing/ is the project home page; the demo lives under /demo/.
       - run: cp -R landing/. _site/
+      # The count is written into the page here, so visitors' browsers never ask GitHub for it.
+      - name: Star count
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          stars=$(gh api "repos/${{ github.repository }}" --jq .stargazers_count 2>/dev/null || echo 0)
+          if [ "$stars" -ge 1000 ] 2>/dev/null; then label=$(awk "BEGIN { printf \"%.1fk\", $stars / 1000 }" | sed 's/\.0k/k/')
+          elif [ "$stars" -ge 1 ] 2>/dev/null; then label=$stars
+          else label=Star; fi
+          sed -i "s|<b data-stars>[^<]*</b>|<b data-stars>$label</b>|" _site/index.html
+          echo "stars: $stars, shown as: $label"
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site

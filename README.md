@@ -13,7 +13,7 @@ each email timeline; and keep your next steps beside every opportunity.
 
 ![Overview](docs/screenshots/overview.png)
 
-**[Website](https://omerdikyol.github.io/jobtrack/)** · **[Live demo](https://omerdikyol.github.io/jobtrack/demo/)**: the real web UI with fictional
+**[Website](https://jobtrack.omerdikyol.com/)** · **[Live demo](https://jobtrack.omerdikyol.com/demo/)**: the real web UI with fictional
 applications from `scripts/seed_demo.py`. It is read-only and contains no data
 from a real inbox. Build it yourself with `python scripts/build_demo.py site`.
 
