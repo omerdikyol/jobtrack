@@ -1457,6 +1457,15 @@ api("/api/health")
       ? "Gmail authorized"
       : "Gmail not connected";
     $("connection-dot").classList.toggle("offline", !health.gmail_token_saved);
+    if (!health.gmail_token_saved)
+      $("connection-sync").addEventListener(
+        "click",
+        (event) => {
+          event.stopImmediatePropagation();
+          location.href = "/oauth/start";
+        },
+        true,
+      );
   })
   .catch(() => {
     $("connection-label").textContent = "Connection unavailable";

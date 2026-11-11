@@ -26,7 +26,7 @@ by a local or hosted model.
 | --- | --- |
 | **Reads** recruiting mail you already received | **Cannot** send, delete, or modify mail |
 | **Stores** everything in a local SQLite file | **Cannot** reach your inbox without your approval |
-| **Runs** on `127.0.0.1` with no external service | **Cannot** be a hosted service — there is no account |
+| **Runs** on `127.0.0.1` with no external service | **Has no** shared server or account; you can self-host your own copy |
 
 If you configure a hosted model provider, the email being classified is sent to
 that provider for the length of the request. Rules-only mode (`--llm-mode off`)

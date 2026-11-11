@@ -7,7 +7,9 @@ read models in workspace. SQLite remains the single source of truth.
 
 from __future__ import annotations
 
+import base64
 import csv
+import hmac
 import io
 import json
 import os
@@ -19,13 +21,13 @@ from pathlib import Path
 from typing import Literal
 
 from fastapi import FastAPI, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from jobtrack import insights as insight
 from jobtrack import settings
 from jobtrack.analyze import MODES, build_analyzer
-from jobtrack.auth import AuthError, get_credentials
+from jobtrack.auth import AuthError, _save_token, get_credentials
 from jobtrack.config import (
     DB_PATH,
     TOKEN_PATH,
@@ -216,7 +218,44 @@ def create_app(
         openapi_url="/api/openapi.json",
     )
 
+    interval = int(os.environ.get("JOBTRACK_SYNC_INTERVAL_MIN") or 0)
+    if interval > 0:
+        # ponytail: fixed-interval loop, no jitter/backoff; fine for one user.
+        def _loop():
+            import time
+
+            while True:
+                time.sleep(interval * 60)
+                if TOKEN_PATH.is_file():
+                    runner.start(SyncRequest())
+
+        threading.Thread(target=_loop, daemon=True).start()
+
     app.mount("/assets", StaticFiles(directory=INDEX_PATH.parent), name="assets")
+
+    password = os.environ.get("JOBTRACK_PASSWORD")
+
+    @app.middleware("http")
+    async def require_password(request: Request, call_next):
+        # Hosted deploys: HTTP Basic auth (any username) gates everything but /healthz.
+        if password and request.url.path != "/healthz":
+            try:
+                given = base64.b64decode(
+                    request.headers.get("authorization", "")[6:]
+                ).decode().partition(":")[2]
+            except Exception:
+                given = ""
+            if not hmac.compare_digest(given.encode(), password.encode()):
+                return Response(
+                    "Authentication required",
+                    status_code=401,
+                    headers={"WWW-Authenticate": 'Basic realm="jobtrack"'},
+                )
+        return await call_next(request)
+
+    @app.get("/healthz")
+    def healthz():
+        return {"ok": True}
 
     @app.middleware("http")
     async def local_security(request: Request, call_next):
@@ -682,6 +721,52 @@ def create_app(
         with Store(db) as store:
             return {"runs": store.sync_history()}
 
+    oauth_flows: dict = {}  # state -> Flow; single-user app, in-memory is enough
+
+    def _oauth_flow(request: Request):
+        from google_auth_oauthlib.flow import Flow
+
+        from jobtrack.config import GMAIL_SCOPES
+
+        base = os.environ.get("JOBTRACK_PUBLIC_URL") or str(request.base_url)
+        return Flow.from_client_secrets_file(
+            str(resolve_credentials(runner.credentials)),
+            GMAIL_SCOPES,
+            redirect_uri=base.rstrip("/") + "/oauth/callback",
+        )
+
+    @app.get("/oauth/start")
+    def oauth_start(request: Request):
+        """Browser-based Gmail sign-in for hosted deploys (needs a Web OAuth client)."""
+        try:
+            flow = _oauth_flow(request)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot start Gmail sign-in: {exc}. See README 'Deploy on Fly.io'.",
+            ) from exc
+        url, state = flow.authorization_url(
+            access_type="offline", prompt="consent", include_granted_scopes="true"
+        )
+        oauth_flows.clear()
+        oauth_flows[state] = flow
+        return RedirectResponse(url)
+
+    @app.get("/oauth/callback")
+    def oauth_callback(request: Request, state: str = "", error: str = ""):
+        flow = oauth_flows.pop(state, None)
+        if error or flow is None:
+            raise HTTPException(
+                status_code=400, detail=error or "Unknown or expired sign-in attempt."
+            )
+        base = os.environ.get("JOBTRACK_PUBLIC_URL") or str(request.base_url)
+        flow.fetch_token(
+            authorization_response=base.rstrip("/") + request.url.path
+            + "?" + request.url.query
+        )
+        _save_token(flow.credentials, TOKEN_PATH)
+        return RedirectResponse("/")
+
     @app.get("/api/health")
     def health():
         with Store(db) as store:
@@ -968,7 +1053,14 @@ def serve(
     if open_browser:
         threading.Timer(1.0, lambda: _open_browser(url)).start()
 
-    uvicorn.run(app, host=host, port=port, log_level="warning")
+    # Behind a proxy (Fly) the browser's https Origin must match request.base_url.
+    uvicorn.run(
+        app,
+        host=host,
+        port=port,
+        log_level="warning",
+        forwarded_allow_ips="*" if os.environ.get("JOBTRACK_PASSWORD") else None,
+    )
 
 
 def _open_browser(url: str) -> None:
