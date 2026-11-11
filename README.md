@@ -35,7 +35,13 @@ and local models keep that content on your device. See
 
 ## Install
 
-Python 3.10 or newer. From a clone:
+Python 3.10 or newer. From PyPI:
+
+```bash
+pipx install jobtrack      # or: uv tool install jobtrack
+```
+
+Or from a clone:
 
 ```bash
 uv venv
