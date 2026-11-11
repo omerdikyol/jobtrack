@@ -544,6 +544,8 @@ class Store:
                 if original and original.company == "Unknown":
                     application_id = stale_app
             outcome = "matched"
+            if application_id is None and cls.kind == "viewed":
+                return "ignored", None
             if application_id is None:
                 application_id = self._create_application(msg, cls)
                 outcome = "created"
@@ -624,7 +626,9 @@ class Store:
         override = self.conn.execute(
             "SELECT status_override FROM applications WHERE id = ?", (application_id,)
         ).fetchone()
-        status = override[0] or derived
+        # A viewed-only application was necessarily submitted; its own
+        # confirmation just predates the mailbox window.
+        status = override[0] or ("applied" if derived == "viewed" else derived)
         dates = sorted(r["event_date"] for r in rows)
 
         self.conn.execute(

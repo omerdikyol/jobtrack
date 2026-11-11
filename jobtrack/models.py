@@ -46,7 +46,10 @@ def _split_addresses(header: str) -> list[tuple[str, str]]:
 # everything, then a rejection, then the most advanced positive stage reached.
 # `incomplete` sits below even outreach: it means "started but never submitted",
 # so any real activity supersedes it.
+# `viewed` ("the company opened your application") never changes the status and
+# never creates an application of its own.
 STATUS_RANK = {
+    "viewed": -2,
     "incomplete": -1,
     "outreach": 0,
     "applied": 1,
@@ -58,6 +61,7 @@ STATUS_RANK = {
 
 # Labels people actually want to read in the dashboard.
 STATUS_LABELS = {
+    "viewed": "Viewed",
     "incomplete": "Incomplete",
     "outreach": "Outreach",
     "applied": "Applied",

@@ -275,9 +275,17 @@ SIGNALS: dict[str, list[tuple[str, int, str]]] = {
             "your availability (Turkish)",
         ),
     ],
+    # LinkedIn: "your application was viewed by X". Not a new submission.
+    "viewed": [
+        (
+            r"başvurunuz(?: .+? tarafından)? görüntülendi|your application was viewed",
+            6,
+            "application viewed",
+        ),
+    ],
     "applied": [
         (
-            r"başvurunuz .+? şirketine gönderildi|başvurunuzu aldık|başvurunuz(?:u)? (?:bize )?ulaştı|başvurunuz görüntülendi",
+            r"başvurunuz .+? şirketine gönderildi|başvurunuzu aldık|başvurunuz(?:u)? (?:bize )?ulaştı",
             6,
             "application confirmation (Turkish)",
         ),
@@ -381,6 +389,7 @@ KIND_PRIORITY = [
     "assessment",
     "interview",
     "incomplete",
+    "viewed",
     "applied",
     "outreach",
 ]
@@ -388,7 +397,7 @@ KIND_PRIORITY = [
 # Nearly every rejection, test invitation and reminder also thanks the reader
 # for applying, so "applied" vocabulary is everywhere. These outcomes are
 # phrased specifically enough that, once they clear MIN_SCORE, they beat it.
-DECISIVE_KINDS = ("offer", "rejected", "assessment", "incomplete")
+DECISIVE_KINDS = ("offer", "rejected", "assessment", "incomplete", "viewed")
 
 MIN_SCORE = 4
 
