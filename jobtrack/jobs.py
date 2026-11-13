@@ -41,6 +41,8 @@ class SyncRunner:
         self.settings = settings if settings is not None else load_settings()
         self._lock = threading.Lock()
         self._state: dict = {"status": "idle"}
+        with Store(self.db_path) as store:
+            store.abandon_own_syncs()
 
     def snapshot(self) -> dict:
         with self._lock:

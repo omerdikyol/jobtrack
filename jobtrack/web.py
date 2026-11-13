@@ -112,6 +112,7 @@ def _serialize_application(app: Application) -> dict:
         "category": app.category,
         "follow_up_on": app.follow_up_on,
         "status_override": app.status_override,
+        "job_url": app.job_url,
     }
 
 

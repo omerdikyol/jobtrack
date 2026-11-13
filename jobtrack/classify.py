@@ -781,7 +781,7 @@ def _strip_generic_suffix(name: str) -> str:
     return text
 
 
-def _company_candidate(value: str) -> str | None:
+def _company_candidate(value: str, structured: bool = False) -> str | None:
     """Clean a raw match and decide whether it can be an employer name."""
     cleaned = _clean(value)
     # Preserve the trailing dot of the Turkish "A.Ş." abbreviation, which
@@ -799,12 +799,12 @@ def _company_candidate(value: str) -> str | None:
     ).strip()
     if not cleaned or cleaned.lower() in PLATFORM_NAMES:
         return None
-    if not is_plausible_company(cleaned):
+    if not is_plausible_company(cleaned, structured):
         return None
     return cleaned
 
 
-def is_plausible_company(value: str) -> bool:
+def is_plausible_company(value: str, structured: bool = False) -> bool:
     if not value:
         return False
     cleaned = _clean(value)
@@ -855,7 +855,9 @@ def is_plausible_company(value: str) -> bool:
         if not (business_suffix and named_company):
             return False
     # "SiteGround has been received" is a sentence fragment, not an employer.
-    if _FLOW_WORDS.search(cleaned) and len(cleaned.split()) <= 5:
+    # structured: the name sits in a fixed template slot ("başvurunuz X şirketine
+    # gönderildi"), so it cannot be a sentence fragment ("Your Software Supplier").
+    if not structured and _FLOW_WORDS.search(cleaned) and len(cleaned.split()) <= 5:
         return False
     return True
 
@@ -962,7 +964,7 @@ def extract_company(msg: EmailMessage) -> str | None:
             ):
                 match = re.search(pattern, text, re.I | re.M)
                 if match:
-                    candidate = _company_candidate(match.group(1))
+                    candidate = _company_candidate(match.group(1), structured=True)
                     if candidate:
                         return candidate
         # LinkedIn delivery templates name the actual employer, often in the body.

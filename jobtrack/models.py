@@ -92,6 +92,8 @@ class EmailMessage:
     # application sent by the user keeps the To: header. `to` is a raw header
     # list ("Name <a@b.co>, other@d.com"); `to_emails` splits it.
     to: str = ""
+    # Canonical LinkedIn posting URL found in the mail's links, if any.
+    job_url: str = ""
 
     def __post_init__(self) -> None:
         if self.date.tzinfo is None:
@@ -173,6 +175,7 @@ class Application:
     follow_up_on: str | None = None
     status_override: str | None = None
     category: str = "employment"
+    job_url: str | None = None
 
     @property
     def status_label(self) -> str:

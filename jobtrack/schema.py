@@ -6,7 +6,7 @@ import sqlite3
 
 from jobtrack.categories import identity_key, infer_category
 
-VERSION = 7
+VERSION = 8
 
 
 def migrate(conn: sqlite3.Connection) -> None:
@@ -143,3 +143,10 @@ def migrate(conn: sqlite3.Connection) -> None:
             if "details" not in columns:
                 conn.execute("ALTER TABLE events ADD COLUMN details TEXT")
             conn.execute("PRAGMA user_version = 7")
+
+        if version < 8:
+            # LinkedIn posting URL: ties follow-up mail to the exact job.
+            columns = {row[1] for row in conn.execute("PRAGMA table_info(applications)")}
+            if "job_url" not in columns:
+                conn.execute("ALTER TABLE applications ADD COLUMN job_url TEXT")
+            conn.execute("PRAGMA user_version = 8")

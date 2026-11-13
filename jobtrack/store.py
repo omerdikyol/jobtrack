@@ -179,6 +179,7 @@ def _application_from_row(row: sqlite3.Row, historical: bool = False) -> Applica
         notes="" if historical else row["notes"],
         follow_up_on=None if historical else row["follow_up_on"],
         status_override=None if historical else row["status_override"],
+        job_url=row["job_url"],
     )
 
 
@@ -234,6 +235,14 @@ class Store:
         Threading wins, then an exact company+role match, then a company-wide
         match. Anything else starts a new application.
         """
+        # The same LinkedIn posting is the same application, whatever the title says.
+        if msg.job_url:
+            row = self.conn.execute(
+                "SELECT id FROM applications WHERE job_url = ? ORDER BY last_event_at DESC",
+                (msg.job_url,),
+            ).fetchone()
+            if row:
+                return int(row["id"])
         just_active = self._just_active_application(msg, cls)
         if just_active is not None:
             return just_active
@@ -467,8 +476,8 @@ class Store:
         cursor = self.conn.execute(
             """
             INSERT INTO applications
-                (company, company_key, role, role_key, status, first_seen, last_event_at, category)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                (company, company_key, role, role_key, status, first_seen, last_event_at, category, job_url)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 company,
@@ -484,6 +493,7 @@ class Store:
                 _to_iso(msg.date),
                 _to_iso(msg.date),
                 category,
+                msg.job_url or None,
             ),
         )
         return int(cursor.lastrowid)
@@ -552,6 +562,11 @@ class Store:
 
             self._insert_event(application_id, msg, cls)
             self._fill_application_role(application_id, cls)
+            if msg.job_url:
+                self.conn.execute(
+                    "UPDATE applications SET job_url = ? WHERE id = ? AND job_url IS NULL",
+                    (msg.job_url, application_id),
+                )
             self._refresh_application(application_id)
             # A re-classification can move an email to a different application,
             # which changes the old one's derived status.
@@ -754,7 +769,7 @@ class Store:
         # The inner JOIN drops applications with no activity yet at `as_of`, and
         # the correlated subquery replays the live precedence rules.
         query = f"""
-            SELECT a.id, a.company, a.role, a.category,
+            SELECT a.id, a.company, a.role, a.category, a.job_url,
                    COUNT(e.id) AS event_count,
                    MIN(e.event_date) AS asof_first,
                    MAX(e.event_date) AS asof_last,
@@ -1169,7 +1184,7 @@ class Store:
             )
             fills = {
                 field: source[field]
-                for field in ("role", "notes", "follow_up_on", "status_override", "location")
+                for field in ("role", "notes", "follow_up_on", "status_override", "location", "job_url")
                 if not target[field] and source[field]
             }
             if fills.get("role"):
@@ -1533,6 +1548,21 @@ class Store:
                 )
             except PermissionError:
                 pass  # A live process owned by another user still holds its job.
+
+    def abandon_own_syncs(self) -> None:
+        """Fail 'running' rows owned by this very PID. A server calls this once
+        at startup: nothing of its own can be running yet, and in a container
+        the PID is always 1, so a stale row would otherwise look alive forever."""
+        with self.conn:
+            self.conn.execute(
+                "UPDATE sync_runs SET status = 'error', error = ?, finished_at = ? "
+                "WHERE status = 'running' AND owner_pid = ?",
+                (
+                    "Sync interrupted when its process stopped. Run it again to continue.",
+                    _to_iso(datetime.now(timezone.utc)),
+                    os.getpid(),
+                ),
+            )
 
     def begin_sync(self, query: str, dry_run: bool = False) -> int:
         with self.conn:
