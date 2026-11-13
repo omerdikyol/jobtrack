@@ -11,6 +11,8 @@ from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from typing import Iterator
 
+import httplib2
+from google_auth_httplib2 import AuthorizedHttp
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
@@ -130,6 +132,18 @@ BODY_PHRASES = (
 
 _TAG_RE = re.compile(r"<(script|style)\b.*?</\1>", re.I | re.S)
 _BR_RE = re.compile(r"<br\s*/?>|</(?:p|div|tr|h[1-6]|li|td|section)>", re.I)
+# LinkedIn mail links the job card: .../jobs/view/<id>/ or .../jobs/view/<slug>-<id>/
+_JOB_URL_RE = re.compile(
+    r"linkedin\.com/(?:comm/)?jobs/view/(?:[\w%.~-]*?-)?(\d{6,})", re.I
+)
+
+
+def find_job_url(raw_html: str) -> str:
+    """Canonical posting URL of the first LinkedIn job link in an HTML body."""
+    match = _JOB_URL_RE.search(html.unescape(raw_html))
+    return f"https://www.linkedin.com/jobs/view/{match.group(1)}/" if match else ""
+
+
 _INVISIBLE_RE = re.compile(r"[\u034f\u200b\u2060\ufeff]")
 
 
@@ -186,6 +200,16 @@ def _strip_html(text: str) -> str:
     text = re.sub(r"<[^>]+>", " ", text)
     text = _INVISIBLE_RE.sub("", html.unescape(text))
     return re.sub(r"[ \t]+", " ", text).strip()
+
+
+def _find_job_url(payload: dict) -> str:
+    for part in [payload, *(payload.get("parts") or [])]:
+        if part.get("mimeType") == "text/html" and part.get("body", {}).get("data"):
+            if url := find_job_url(_decode(part["body"]["data"])):
+                return url
+        if part is not payload and (url := _find_job_url(part)):
+            return url
+    return ""
 
 
 def _extract_body(payload: dict, prefer_html: bool = False) -> str:
@@ -251,7 +275,11 @@ def parse_message(raw: dict) -> EmailMessage:
             date = datetime.fromtimestamp(int(raw["internalDate"]) / 1000, timezone.utc)
     except (ValueError, TypeError, OverflowError, OSError):
         pass
+    from_linkedin = bool(
+        re.search(r"@(?:[\w.-]+\.)?linkedin\.com(?:>|\s|$)", headers.get("from", ""), re.I)
+    )
     return EmailMessage(
+        job_url=_find_job_url(payload) if from_linkedin else "",
         message_id=raw.get("id", ""),
         thread_id=raw.get("threadId", ""),
         subject=headers.get("subject", "") or "",
@@ -276,8 +304,13 @@ class GmailClient:
     """Thin wrapper over the Gmail REST API."""
 
     def __init__(self, credentials, user_id: str = "me"):
+        # httplib2 has no default timeout: a stalled connection hung a sync for
+        # hours. Every request fails after 60 s instead and goes through _retry.
         self.service = build(
-            "gmail", "v1", credentials=credentials, cache_discovery=False
+            "gmail",
+            "v1",
+            http=AuthorizedHttp(credentials, http=httplib2.Http(timeout=60)),
+            cache_discovery=False,
         )
         self.user_id = user_id
 
@@ -309,6 +342,12 @@ class GmailClient:
                     delay *= 2
                     continue
                 raise
+            except (TimeoutError, ConnectionError, httplib2.HttpLib2Error):
+                # A stalled or dropped connection (see the timeout in __init__).
+                if attempt == attempts - 1:
+                    raise
+                time.sleep(delay)
+                delay *= 2
         raise RuntimeError("unreachable")
 
     def iter_message_ids(self, query: str, limit: int = 0) -> Iterator[str]:
