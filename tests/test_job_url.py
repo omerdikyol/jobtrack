@@ -15,14 +15,18 @@ def test_find_job_url():
 
 def test_parse_message_reads_linkedin_html_only():
     html = '<p>hi</p><a href="https://www.linkedin.com/comm/jobs/view/4012345678/">Job</a>'
-    raw = lambda sender: {
-        "id": "m", "threadId": "t",
-        "payload": {
-            "headers": [{"name": "From", "value": sender}],
-            "mimeType": "multipart/alternative",
-            "parts": [{"mimeType": "text/html", "body": {"data": base64.urlsafe_b64encode(html.encode()).decode()}}],
-        },
-    }
+    def raw(sender):
+        data = base64.urlsafe_b64encode(html.encode()).decode()
+        return {
+            "id": "m",
+            "threadId": "t",
+            "payload": {
+                "headers": [{"name": "From", "value": sender}],
+                "mimeType": "multipart/alternative",
+                "parts": [{"mimeType": "text/html", "body": {"data": data}}],
+            },
+        }
+
     assert parse_message(raw("LinkedIn <jobs-noreply@linkedin.com>")).job_url.endswith("/4012345678/")
     assert parse_message(raw("Someone <a@example.com>")).job_url == ""
 
